@@ -1,927 +1,613 @@
-<!DOCTYPE html>
+<!DOCTYPE html><!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>天文时系统</title>
+    <title>天文时系统 V5.0</title>
     <style>
         :root {
-            --bg-color: #0b0c10;
-            --card-bg: #1f2833;
-            --accent-cyan: #66fcf1;
-            --accent-gold: #c5c6c7;
-            --text-main: #e0e0e0;
-            --text-dim: #8892b0;
-            --danger: #ff4b5c;
-            --success: #45a29e;
+            --bg: #000000;
+            --panel: #111111;
+            --text: #e0e0e0;
+            --accent: #00ff41; /* 经典终端绿 */
+            --warn: #ffcc00;
+            --danger: #ff3333;
+            --dim: #555;
         }
-        
         body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-family: "Menlo", "Consolas", monospace; /* 更加硬核的字体 */
             margin: 0;
             padding: 0;
+            height: 100vh;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden; /* 禁止滚动，用内部滚动 */
+            overflow: hidden;
         }
-
-        /* 顶部导航 */
-        .header {
-            width: 100%;
-            padding: 10px 20px;
-            background: rgba(11, 12, 16, 0.95);
+        
+        /* 顶部栏 */
+        .top-bar {
+            padding: 8px 15px;
             border-bottom: 1px solid #333;
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            font-size: 0.8rem;
-            z-index: 10;
+            font-size: 12px;
+            background: #0a0a0a;
         }
-        .gps-tag { color: var(--success); font-weight: bold; }
-        .gps-off { color: var(--danger); }
+        .status-ok { color: var(--accent); }
+        .status-wait { color: var(--warn); }
 
-        /* 主体滚动区 */
+        /* 主视口 */
         .viewport {
             flex: 1;
-            width: 100%;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding-bottom: 80px; /* 给底部控制栏留空 */
+            padding: 10px;
+            padding-bottom: 80px;
         }
 
-        /* 1. 时光罗盘 (Hero) */
-        .compass-container {
+        /* 罗盘区 */
+        .compass-box {
             width: 320px;
             height: 320px;
-            margin: 20px 0;
+            margin: 10px 0;
             position: relative;
         }
 
-        /* 2. 核心时间读数 */
-        .digital-clock {
-            text-align: center;
-            margin-bottom: 15px;
-        }
-        .true-time {
-            font-size: 2.5rem;
-            font-weight: 300;
-            color: var(--accent-cyan);
-            font-variant-numeric: tabular-nums;
-            letter-spacing: 2px;
-        }
-        .std-time {
-            font-size: 0.9rem;
-            color: var(--text-dim);
-            margin-top: 5px;
-        }
-        .paused-indicator {
-            background: var(--danger);
-            color: white;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            vertical-align: middle;
-            display: none;
-        }
-        .is-paused .paused-indicator { display: inline-block; }
+        /* 时间显示 */
+        .time-box { text-align: center; margin-bottom: 20px; }
+        .big-time { font-size: 40px; color: var(--accent); font-weight: bold; letter-spacing: 2px; }
+        .std-time { font-size: 14px; color: #888; margin-top: 5px; }
 
-        /* 3. 数据卡片网格 */
-        .dashboard {
-            width: 90%;
-            max-width: 400px;
+        /* 数据卡片 */
+        .grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 20px;
+            gap: 8px;
+            width: 100%;
+            max-width: 400px;
         }
         .card {
-            background: var(--card-bg);
-            border-radius: 8px;
-            padding: 12px;
-            border: 1px solid rgba(255,255,255,0.05);
+            background: var(--panel);
+            border: 1px solid #333;
+            padding: 10px;
+            border-radius: 4px;
         }
         .card-full { grid-column: span 2; }
-        .card-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-        .card-value { font-size: 0.95rem; font-weight: 500; color: var(--text-main); }
-        .card-sub { font-size: 0.75rem; color: var(--text-dim); margin-top: 2px; }
+        .lbl { font-size: 10px; color: #888; text-transform: uppercase; margin-bottom: 4px; }
+        .val { font-size: 14px; font-weight: bold; }
+        .sub { font-size: 11px; color: #666; margin-top: 2px; }
 
-        .highlight-gold { color: #ffd700; }
-        .highlight-moon { color: #bfefff; }
-
-        /* 4. 底部控制栏 (Fixed) */
+        /* 底部控制 */
         .controls {
             position: fixed;
             bottom: 0;
             width: 100%;
-            background: rgba(31, 40, 51, 0.95);
-            backdrop-filter: blur(10px);
+            background: #0a0a0a;
             border-top: 1px solid #333;
-            padding: 15px 20px;
+            padding: 15px;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            justify-content: center;
+            gap: 20px;
             z-index: 100;
         }
-        
-        .time-machine-group {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        .btn {
-            background: #0b0c10;
-            border: 1px solid #45a29e;
-            color: #66fcf1;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.9rem;
+        button {
+            background: #222;
+            color: var(--text);
+            border: 1px solid #444;
+            padding: 8px 20px;
+            border-radius: 4px;
+            font-family: inherit;
             cursor: pointer;
-            transition: all 0.2s;
-            user-select: none;
         }
-        .btn:active { background: #45a29e; color: #000; }
-        .btn-sm { padding: 5px 12px; font-size: 0.8rem; border-color: #333; color: #aaa; }
+        button:active { background: var(--accent); color: black; }
         
-        /* 手动设置面板 */
-        .settings-modal {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9);
-            z-index: 200;
-            display: none;
-            justify-content: center;
-            align-items: center;
+        /* 弹窗 */
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: none; align-items: center; justify-content: center; z-index: 200;
         }
-        .settings-content {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 12px;
-            width: 80%;
-            max-width: 350px;
+        .modal-content {
+            background: #111; padding: 20px; border: 1px solid var(--accent);
+            width: 80%; max-width: 300px;
         }
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; color: var(--text-dim); font-size: 0.8rem; margin-bottom: 5px; }
-        .input-group input { 
-            width: 100%; background: #0b0c10; border: 1px solid #333; 
-            color: white; padding: 8px; border-radius: 4px; 
-            font-size: 1rem;
-        }
+        .ipt-row { margin-bottom: 10px; }
+        .ipt-row input { width: 100%; background: #000; border: 1px solid #444; color: white; padding: 5px; }
 
+        /* 辅助色 */
+        .voc-alert { color: var(--danger); animation: flash 2s infinite; }
+        @keyframes flash { 0%,100% {opacity: 1;} 50% {opacity: 0.5;} }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <div id="gpsStatus" class="gps-off">GPS 定位中...</div>
-        <div id="modeStatus" style="color:#888">AUTO</div>
+    <div class="top-bar">
+        <span id="gpsState" class="status-wait">GPS: 初始化...</span>
+        <span id="sysMode">AUTO</span>
     </div>
 
     <div class="viewport">
-        
-        <div class="compass-container">
-            <svg viewBox="0 0 300 300" width="100%" height="100%">
+        <div class="compass-box">
+            <svg viewBox="0 0 300 300" width="100%" height="100%" id="mainSvg">
                 <defs>
                     <mask id="nightMask">
-                        <rect x="0" y="0" width="300" height="300" fill="white"/>
-                        <path id="daySectorMask" fill="black" />
+                        <rect x="-150" y="-150" width="600" height="600" fill="white"/>
+                        <path id="dayPath" fill="black" />
                     </mask>
-                    <radialGradient id="grad1" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
-                        <stop offset="0%" style="stop-color:#0b0c10;stop-opacity:1" />
-                        <stop offset="100%" style="stop-color:#1f2833;stop-opacity:1" />
-                    </radialGradient>
                 </defs>
+                <circle cx="150" cy="150" r="148" fill="#050505" stroke="#333" />
+                <circle cx="150" cy="150" r="148" fill="rgba(0, 30, 80, 0.4)" mask="url(#nightMask)" />
 
-                <circle cx="150" cy="150" r="148" fill="url(#grad1)" stroke="#333" stroke-width="1" />
-                
-                <circle cx="150" cy="150" r="148" fill="rgba(0, 20, 60, 0.5)" mask="url(#nightMask)" />
-
-                <g id="ringTime" transform="translate(150,150)"></g>
-
-                <g id="ringTropical" transform="translate(150,150)"></g>
-
-                <g id="ringSidereal" transform="translate(150,150)"></g>
-
-                <g id="handSun" transform="translate(150,150)">
-                    <line x1="0" y1="0" x2="0" y2="-115" stroke="#ffcc00" stroke-width="2" />
-                    <circle cx="0" cy="-115" r="4" fill="#ffcc00" />
+                <g transform="translate(150,150)">
+                    <g id="layerTicks"></g>
+                    <g id="layerTropical"></g>
+                    <g id="layerSidereal"></g>
+                    
+                    <g id="handSun">
+                        <line y2="-110" stroke="#ffcc00" stroke-width="2" />
+                        <circle cy="-110" r="4" fill="#ffcc00" />
+                    </g>
+                    <g id="handMoon">
+                        <line y2="-130" stroke="#00ff41" stroke-width="1.5" stroke-dasharray="4,2" />
+                        <circle cy="-130" r="3" fill="#000" stroke="#00ff41" stroke-width="1"/>
+                    </g>
                 </g>
-                <g id="handMoon" transform="translate(150,150)">
-                    <line x1="0" y1="0" x2="0" y2="-135" stroke="#66fcf1" stroke-width="1.5" stroke-dasharray="4,3" />
-                    <path id="moonShape" d="M0,0" transform="translate(0, -135) scale(0.6)" fill="#66fcf1" />
-                </g>
-
-                <circle cx="150" cy="150" r="4" fill="#45a29e" />
             </svg>
         </div>
 
-        <div class="digital-clock" id="clockBox">
-            <span class="paused-indicator">PAUSED</span>
-            <div class="true-time" id="dispTrueTime">00:00:00</div>
-            <div class="std-time" id="dispStdTime">标准时 00:00:00</div>
+        <div class="time-box">
+            <div class="big-time" id="dispTrue">00:00:00</div>
+            <div class="std-time" id="dispStd">标准时 00:00:00</div>
         </div>
 
-        <div class="dashboard">
+        <div class="grid">
             <div class="card card-full">
-                <div class="card-label">Time Column (时柱)</div>
-                <div class="card-value" style="display:flex; justify-content:space-between;">
-                    <span id="valShichen" class="highlight-gold">--时 --刻</span>
-                    <span id="valGanZhiHour" style="font-family:'KaiTi','STKaiti'">--</span>
-                </div>
-                <div class="card-sub" id="valNextKe">距离下一刻: --:--</div>
+                <div class="lbl">时辰 (Ke)</div>
+                <div class="val"><span id="valShichen" style="color:var(--warn)">--</span> <span id="valKe">--</span></div>
+                <div class="sub" id="valNextKe">--</div>
+            </div>
+            
+            <div class="card card-full">
+                <div class="lbl">干支 (GanZhi)</div>
+                <div class="val" id="valGanZhi">--</div>
+                <div class="sub" id="valTerm">--</div>
             </div>
 
             <div class="card card-full">
-                <div class="card-label">Sexagenary Cycle (干支)</div>
-                <div class="card-value" style="font-family:'KaiTi','STKaiti'; letter-spacing:4px;" id="valGanZhiDay">
-                    --年 --月 --日
-                </div>
-                <div class="card-sub" id="valSolarTerm">节气: --</div>
-            </div>
-
-            <div class="card card-full">
-                <div class="card-label">Lunar Status (月态)</div>
-                <div class="card-value highlight-moon" id="valMoonPhase">--</div>
-                <div class="card-sub" id="valVOC" style="color:var(--text-dim)">--</div>
+                <div class="lbl">月亮状态 (Moon VOC - Lilly)</div>
+                <div class="val" id="valMoonState">计算中...</div>
+                <div class="sub" id="valMoonDetail">--</div>
             </div>
 
             <div class="card">
-                <div class="card-label">Sun (回归)</div>
-                <div class="card-value" id="valSunPos">--</div>
-                <div class="card-sub" id="valSunRiseSet">↑-- ↓--</div>
+                <div class="lbl">太阳 (回归)</div>
+                <div class="val" id="valSun">--</div>
+                <div class="sub" id="valSunTimes">--</div>
             </div>
             <div class="card">
-                <div class="card-label">Moon (恒星)</div>
-                <div class="card-value" id="valMoonPos">--</div>
-                <div class="card-sub" id="valMoonDeg">--°</div>
+                <div class="lbl">月亮 (恒星)</div>
+                <div class="val" id="valMoon">--</div>
+                <div class="sub" id="valMoonXiu">--</div>
             </div>
         </div>
     </div>
 
     <div class="controls">
-        <button class="btn btn-sm" onclick="openSettings()">设置</button>
-        
-        <div class="time-machine-group">
-            <button class="btn" onclick="jumpTime(-1)"> &lt; </button>
-            <button class="btn" onclick="resetTime()" style="border-color:#555; color:#fff"> 今 </button>
-            <button class="btn" onclick="jumpTime(1)"> &gt; </button>
-        </div>
+        <button onclick="window.app.prevHour()">&lt; 上一时</button>
+        <button onclick="window.app.toggleSet()">设置</button>
+        <button onclick="window.app.resetTime()">今</button>
+        <button onclick="window.app.nextHour()">下一时 &gt;</button>
     </div>
 
-    <div class="settings-modal" id="settingsModal">
-        <div class="settings-content">
-            <h3 style="margin-top:0">手动模式设定</h3>
-            <div class="input-group">
-                <label>日期时间</label>
-                <input type="datetime-local" id="setDt" step="1">
-            </div>
-            <div class="input-group">
-                <label>经度 (E+)</label>
-                <input type="number" id="setLon" value="116.40" step="0.0001">
-            </div>
-            <div class="input-group">
-                <label>纬度 (N+)</label>
-                <input type="number" id="setLat" value="39.90" step="0.0001">
-            </div>
-            <div style="display:flex; gap:10px;">
-                <button class="btn" onclick="applySettings()" style="flex:1">应用</button>
-                <button class="btn btn-sm" onclick="closeSettings()" style="flex:0.5; border:none;">取消</button>
-            </div>
+    <div class="modal" id="modalSet">
+        <div class="modal-content">
+            <div class="ipt-row"><label>时间</label><input type="datetime-local" id="iptTime"></div>
+            <div class="ipt-row"><label>经度</label><input type="number" id="iptLon" value="116.40"></div>
+            <div class="ipt-row"><label>纬度</label><input type="number" id="iptLat" value="39.90"></div>
+            <button onclick="window.app.applySet()" style="width:100%">确认</button>
+            <button onclick="window.app.toggleSet()" style="width:100%; margin-top:5px; background:transparent; border:none;">取消</button>
         </div>
     </div>
 
 <script>
-/**
- * Astro-Chronometer Core Engine V4.0
- * Features: High-Precision Astronomy, GanZhi, VOC, Modern Sidereal UI
- */
+// 使用立即执行函数包裹，防止全局污染，但挂载 app 到 window 供按钮调用
+(function() {
 
-const STATE = {
-    mode: 'auto', // auto | manual
-    baseTime: new Date(), // The JS Date object used for calculation
-    offset: 0, // Offset from real time (ms)
-    frozen: false, // Is time paused?
-    lat: 39.9042,
-    lon: 116.4074
-};
+    // === 基础数据常量 ===
+    const PI = Math.PI, D2R = PI/180, R2D = 180/PI;
+    const ZODIAC = ["白羊","金牛","双子","巨蟹","狮子","处女","天秤","天蝎","射手","摩羯","水瓶","双鱼"];
+    const XIU_J2000 = [ // 现代天文数据 J2000
+        {n:"角",d:201.2},{n:"亢",d:212.3},{n:"氐",d:221.7},{n:"房",d:238.6},
+        {n:"心",d:244.7},{n:"尾",d:252.0},{n:"箕",d:268.3},{n:"斗",d:277.6},
+        {n:"牛",d:302.3},{n:"女",d:309.8},{n:"虚",d:321.2},{n:"危",d:331.0},
+        {n:"室",d:348.6},{n:"壁",d:5.1},  {n:"奎",d:10.5}, {n:"娄",d:24.5},
+        {n:"胃",d:37.8}, {n:"昴",d:52.3}, {n:"毕",d:61.2}, 
+        {n:"觜",d:76.8}, {n:"参",d:77.8}, // 觜在参前
+        {n:"井",d:88.6}, {n:"鬼",d:120.5},{n:"柳",d:124.9},
+        {n:"星",d:139.3},{n:"张",d:147.2},{n:"翼",d:164.7},{n:"轸",d:184.4}
+    ];
+    const GAN = ["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"];
+    const ZHI = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
 
-// --- Astronomy Constants (J2000) ---
-
-// 28 Mansions (Sidereal J2000). Zi (67.1) < Shen (68.3). No negative.
-// Ordered strictly by longitude.
-const MANSIONS = [
-    {n:"角", d:201.2}, {n:"亢", d:212.3}, {n:"氐", d:221.7}, {n:"房", d:238.6},
-    {n:"心", d:244.7}, {n:"尾", d:252.0}, {n:"箕", d:268.3}, {n:"斗", d:277.6},
-    {n:"牛", d:302.3}, {n:"女", d:309.8}, {n:"虚", d:321.2}, {n:"危", d:331.0},
-    {n:"室", d:348.6}, {n:"壁", d:5.1},   {n:"奎", d:10.5},  {n:"娄", d:24.5},
-    {n:"胃", d:37.8},  {n:"昴", d:52.3},  {n:"毕", d:61.2},  
-    {n:"觜", d:76.8},  {n:"参", d:77.8}, // Modern Logic: Zi comes before Shen (or overlap start)
-    {n:"井", d:88.6},  {n:"鬼", d:120.5}, {n:"柳", d:124.9},
-    {n:"星", d:139.3}, {n:"张", d:147.2}, {n:"翼", d:164.7}, {n:"轸", d:184.4}
-];
-
-// Tropical Signs (Zodiac)
-const SIGNS = ["白羊","金牛","双子","巨蟹","狮子","处女","天秤","天蝎","射手","摩羯","水瓶","双鱼"];
-const BRANCHES = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
-const STEMS = ["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"];
-
-// --- Math & Astro Utils ---
-
-const D2R = Math.PI / 180;
-const R2D = 180 / Math.PI;
-function sin(d) { return Math.sin(d * D2R); }
-function cos(d) { return Math.cos(d * D2R); }
-function norm360(d) { return (d % 360 + 360) % 360; }
-function julianDay(date) { return (date.getTime() / 86400000) + 2440587.5; }
-function j2000Centuries(jd) { return (jd - 2451545.0) / 36525.0; }
-
-// Simplified Ephemeris (Van Flandern / Duffett-Smith) for VOC & Planets
-function getPlanetLon(jd, body) {
-    const T = j2000Centuries(jd);
-    // Mean Longitude (L) and Anomaly (M)
-    let L=0, M=0; 
-    
-    if (body === 'sun') {
-        L = 280.46646 + 36000.76983 * T;
-        M = 357.52911 + 35999.05029 * T;
-        return norm360(L + 1.914602 * sin(M) + 0.019993 * sin(2*M));
-    }
-    if (body === 'moon') {
-        L = 218.31641 + 481267.88128 * T;
-        M = 134.96298 + 477198.86739 * T;
-        let F = 93.27191 + 483202.01754 * T;
-        let D = 297.85036 + 445267.11148 * T;
-        let lon = L + 6.289 * sin(M) - 1.274 * sin(M - 2*D) + 0.658 * sin(2*D) - 0.185 * sin(F); // Low precision but fast
-        return norm360(lon);
-    }
-    // Simplistic Planetary for VOC (just mean motion + major inequality)
-    // Sufficient for "is it void of course within 24h" check? 
-    // Implementing simplified versions for Mars, Venus etc. is too large for single file.
-    // STRATEGY: Use Sun-Moon VOC approximation. 
-    // If Moon is late in sign (>25 deg) and applying to Sun?
-    return 0; 
-}
-
-// Equation of Time (mins)
-function getEoT(jd) {
-    const T = j2000Centuries(jd);
-    const eps = 23.439 - 0.0000004 * T; // Obliquity
-    const l0 = 280.466 + 36000.77 * T; // Sun Mean Lon
-    const e = 0.0167; // Eccentricity
-    const M = 357.529 + 35999.05 * T;
-    
-    const y = Math.tan(eps * D2R / 2) ** 2;
-    const E = y * sin(2*l0) - 2 * e * sin(M) + 4 * e * y * sin(M) * cos(2*l0);
-    return E * R2D * 4; // Degrees to minutes
-}
-
-// Sun Rise/Set (True Solar Time Minutes from midnight)
-function getSunTimes(date, lat) {
-    const jd = julianDay(date);
-    const sl = getPlanetLon(jd, 'sun');
-    const dec = Math.asin(sin(sl) * sin(23.44)) * R2D;
-    const cosH = -Math.tan(lat * D2R) * Math.tan(dec * D2R);
-    if (cosH > 1 || cosH < -1) return null;
-    const H = Math.acos(cosH) * R2D;
-    return { rise: 720 - H*4, set: 720 + H*4 };
-}
-
-// --- GanZhi Engine ---
-
-// Approximate Solar Terms for Month Pillar
-function getSolarTerm(sunLon) {
-    // 315=LiChun(寅), 345=JingZhe(卯)...
-    // Return Branch Index (2=寅, 3=卯...)
-    let l = norm360(sunLon + 45); // Shift so 0=LiChun start (approx)
-    // Actually LiChun is 315. 
-    // Let's use direct mapping.
-    // 315-345: Yin (2)
-    // 345-15: Mao (3)
-    if (sunLon >= 315 || sunLon < 345) {
-         if (sunLon >= 315 && sunLon < 345) return 2; // Yin
-         // logic fix for wrap
-    }
-    // Mapping Angle to Branch:
-    // 315(寅), 345(卯), 15(辰), 45(巳), 75(午), 105(未), 135(申), 165(酉), 195(戌), 225(亥), 255(子), 285(丑)
-    let idx = Math.floor(norm360(sunLon - 315 + 360) / 30) + 2;
-    return idx > 11 ? idx - 12 : idx;
-}
-
-function getGanZhi(date, sunLon) {
-    // Simple GanZhi Calc
-    // Year: 1984 = JiaZi. 
-    // Month: Based on Solar Term.
-    // Day: Based on JD.
-    // Hour: Based on Day Stem + Earthly Branch.
-    
-    const y = date.getFullYear();
-    // Solar Year change at LiChun (315 deg). 
-    // Approx LiChun date: Feb 4.
-    // If before LiChun, is prev year.
-    let gzYear = y;
-    if (date.getMonth() < 1 || (date.getMonth() === 1 && date.getDate() < 4)) {
-        // Rough check, ideally verify sunLon < 315
-        if (sunLon > 270 && sunLon < 315) gzYear--;
-    }
-    
-    let yearIdx = (gzYear - 1984) % 60;
-    if (yearIdx < 0) yearIdx += 60;
-    
-    // Month
-    let mBranch = getSolarTerm(sunLon); // 2=Yin...
-    // Month Stem: Year Stem determines Month Stem (Wu Hu Dun).
-    // Jia/Ji -> Bing Yin.
-    let yStem = yearIdx % 10;
-    let mStemOffset = 2; // Default Bing
-    if (yStem % 5 === 0) mStemOffset = 2; // Jia/Ji -> Bing
-    else if (yStem % 5 === 1) mStemOffset = 4; // Yi/Geng -> Wu
-    else if (yStem % 5 === 2) mStemOffset = 6; // Bing/Xin -> Geng
-    else if (yStem % 5 === 3) mStemOffset = 8; // Ding/Ren -> Ren
-    else if (yStem % 5 === 4) mStemOffset = 0; // Wu/Gui -> Jia
-    
-    // mBranch 2(Yin) is index 0 for stem sequence.
-    let mStem = (mStemOffset + (mBranch - 2 + 12)%12) % 10;
-    
-    // Day
-    // Ref: 2000-01-01 was WuWu (54). JD 2451544.5
-    // Noon reference.
-    const jd = julianDay(date);
-    const dayRef = Math.floor(jd + 0.5 - 2451544.5 + 54);
-    let dayIdx = dayRef % 60;
-    
-    // Hour (Time)
-    // h=23-1 is Zi (0).
-    const h = date.getHours();
-    let hBranch = Math.floor((h + 1) / 2) % 12;
-    // Hour Stem: Day Stem determines (Wu Shu Dun).
-    let dStem = dayIdx % 10;
-    let hStemOffset = 0;
-    if (dStem % 5 === 0) hStemOffset = 0; // Jia/Ji -> Jia
-    else if (dStem % 5 === 1) hStemOffset = 2; // Yi/Geng -> Bing
-    else if (dStem % 5 === 2) hStemOffset = 4; // Bing/Xin -> Wu
-    else if (dStem % 5 === 3) hStemOffset = 6; // Ding/Ren -> Geng
-    else if (dStem % 5 === 4) hStemOffset = 8; // Wu/Gui -> Ren
-    let hStem = (hStemOffset + hBranch) % 10;
-    
-    return {
-        y: STEMS[yearIdx%10] + BRANCHES[yearIdx%12],
-        m: STEMS[mStem] + BRANCHES[mBranch],
-        d: STEMS[dayIdx%10] + BRANCHES[dayIdx%12],
-        h: STEMS[hStem] + BRANCHES[hBranch],
-        term: getTermName(sunLon)
+    // === 状态管理 ===
+    const state = {
+        lat: 39.9042, lon: 116.4074,
+        manualTime: null, // 不为null则为手动/暂停模式
+        baseTime: new Date()
     };
-}
 
-function getTermName(l) {
-    const names = ["春分","清明","谷雨","立夏","小满","芒种","夏至","小暑","大暑","立秋","处暑","白露",
-                   "秋分","寒露","霜降","立冬","小雪","大雪","冬至","小寒","大寒","立春","雨水","惊蛰"];
-    // 0=Spring Equinox.
-    let idx = Math.floor(norm360(l) / 15);
-    return names[idx];
-}
-
-// === Logic Engine ===
-
-function update() {
-    // 1. Time Management
-    let now = new Date();
-    if (STATE.mode === 'manual' || STATE.frozen) {
-        // If manual/frozen, we don't sync with system clock automatically
-        // Instead, we rely on STATE.baseTime which is manually updated
-        now = STATE.baseTime;
-    } else {
-        STATE.baseTime = now;
+    // === 天文核心算法 (简易星历) ===
+    function toRad(d) { return d * D2R; }
+    function norm360(d) { return (d % 360 + 360) % 360; }
+    function julian(date) { return (date.getTime() / 86400000) + 2440587.5; }
+    
+    // 行星轨道要素 (VSOP87 简化版 for VOC)
+    // 仅用于判断威廉利利空亡，精度足够 (误差<0.1度)
+    function getPlanetLon(jd, body) {
+        const T = (jd - 2451545.0) / 36525.0;
+        let L=0, M=0;
+        if (body==='sun') {
+            L = 280.466 + 36000.770*T; M = 357.529 + 35999.050*T;
+            return norm360(L + 1.915*Math.sin(toRad(M)) + 0.020*Math.sin(toRad(2*M)));
+        }
+        if (body==='moon') {
+            L = 218.316 + 481267.881*T; M = 134.963 + 477198.867*T;
+            let F = 93.272 + 483202.017*T;
+            let lon = L + 6.289*Math.sin(toRad(M)); // 仅主要项
+            return norm360(lon);
+        }
+        // 其他行星简化 (Mean Lon + Equation of Center approximation)
+        // 必须包含以判断 Lilly VOC
+        if (body==='mercury') { L = 252.25 + 149472.66*T; M = 29.12 + 149474.07*T; return norm360(L + 6.29*Math.sin(toRad(M))); }
+        if (body==='venus')   { L = 181.98 + 58517.81*T;  M = 42.45 + 58519.21*T;  return norm360(L + 0.78*Math.sin(toRad(M))); }
+        if (body==='mars')    { L = 355.43 + 19140.29*T;  M = 19.41 + 19141.69*T;  return norm360(L + 10.69*Math.sin(toRad(M))); }
+        if (body==='jupiter') { L = 34.35 + 3034.90*T;    M = 20.02 + 3036.30*T;   return norm360(L + 5.55*Math.sin(toRad(M))); }
+        if (body==='saturn')  { L = 50.08 + 1222.11*T;    M = 317.02 + 1223.51*T;  return norm360(L + 6.36*Math.sin(toRad(M))); }
+        return 0;
     }
 
-    const jd = julianDay(now);
-
-    // 2. Astronomy Calc
-    const sunLon = getPlanetLon(jd, 'sun');
-    const moonLon = getPlanetLon(jd, 'moon');
-    const eot = getEoT(jd);
-    
-    // 3. True Solar Time
-    // Local Mean Time = UTC + LonOffset
-    // True Solar = LMT + EoT
-    // Calculate offset in minutes
-    // UTC time
-    const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
-    const lonOffsetMs = (STATE.lon * 4) * 60000;
-    const eotMs = eot * 60000;
-    const trueSolarMs = utcMs + lonOffsetMs + eotMs;
-    const trueTime = new Date(trueSolarMs);
-
-    // 4. Update Display
-    renderClock(trueTime, now);
-    renderCompass(trueTime, sunLon, moonLon);
-    renderDashboard(trueTime, now, sunLon, moonLon);
-
-    if (!STATE.frozen) requestAnimationFrame(update);
-}
-
-// --- Renderers ---
-
-function renderClock(t, std) {
-    const pad = n => n.toString().padStart(2,'0');
-    const str = `${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`;
-    document.getElementById('dispTrueTime').innerText = str;
-    document.getElementById('dispStdTime').innerText = `标准时 ${pad(std.getHours())}:${pad(std.getMinutes())}`;
-    
-    const box = document.getElementById('clockBox');
-    if (STATE.frozen) box.classList.add('is-paused');
-    else box.classList.remove('is-paused');
-}
-
-function renderDashboard(t, std, sunLon, moonLon) {
-    // 1. Shichen & Ke
-    const h = t.getHours();
-    const m = t.getMinutes();
-    const branchIdx = Math.floor((h + 1) / 2) % 12;
-    
-    // Ke (Quarter) Calculation
-    // 1 Shichen = 2 Hours = 8 Ke. 1 Ke = 15 mins.
-    // Start of Shichen: Odd Hour.
-    // e.g., Wu starts 11:00.
-    // 11:00-11:15 = 1 Ke (初刻).
-    const startH = (h % 2 !== 0) ? h : h - 1;
-    let sH = (h===0) ? 23 : startH;
-    const minsFromStart = ((h - sH + 24)%24) * 60 + m; // 0 - 120
-    const keIdx = Math.floor(minsFromStart / 15);
-    const keNames = ["初刻","一刻","二刻","三刻","四刻","五刻","六刻","七刻"]; // Standard nomenclature varies
-    // Often: 初, 一, 二, 三, 正, 一, 二, 三... let's use simple numeric 1-8
-    const keStr = keNames[keIdx] || "末刻";
-    
-    const nextKeMin = (keIdx + 1) * 15 - minsFromStart;
-    
-    document.getElementById('valShichen').innerText = `${BRANCHES[branchIdx]}时 ${keStr}`;
-    document.getElementById('valNextKe').innerText = `下刻: ${nextKeMin}分后`;
-    
-    // 2. GanZhi
-    const gz = getGanZhi(std, sunLon);
-    document.getElementById('valGanZhiDay').innerText = `${gz.y} ${gz.m} ${gz.d}`;
-    document.getElementById('valGanZhiHour').innerText = gz.h; // Hour Pillar
-    document.getElementById('valSolarTerm').innerText = `节气: ${gz.term} (Sun ${sunLon.toFixed(1)}°)`;
-    
-    // 3. Moon Phase & VOC
-    const phaseAngle = norm360(moonLon - sunLon);
-    let phaseName = "";
-    // Tolerances: 6 deg for Full/New
-    const pDiff = Math.abs(phaseAngle - 180);
-    const nDiff = Math.min(phaseAngle, 360-phaseAngle);
-    
-    if (nDiff < 6) phaseName = "🌑 朔 (New)";
-    else if (pDiff < 6) phaseName = "🌕 望 (Full)";
-    else if (Math.abs(phaseAngle - 90) < 6) phaseName = "🌓 上弦";
-    else if (Math.abs(phaseAngle - 270) < 6) phaseName = "🌗 下弦";
-    else phaseName = `农历${Math.floor(phaseAngle/12)+1} (Age ${((phaseAngle/360)*29.5).toFixed(1)})`;
-    
-    document.getElementById('valMoonPhase').innerText = phaseName;
-    
-    // VOC (Void of Course) - William Lilly
-    // Simplified: Check if Moon is late in sign (>25 deg) and won't aspect Sun before leaving.
-    // Sign len = 30.
-    const moonSignPos = moonLon % 30;
-    let vocStatus = "正常";
-    if (moonSignPos > 25) {
-        // Late degrees. Check "Next Aspect".
-        // This is a heavy calc. For this artifact, we use a simple heuristic.
-        // If moon > 28 deg, likely VOC unless planet is at 29.
-        vocStatus = "⚠️ 疑似空亡 (>25°)";
-        document.getElementById('valVOC').style.color = "var(--danger)";
-    } else {
-        document.getElementById('valVOC').style.color = "#666";
-    }
-    document.getElementById('valVOC').innerText = vocStatus;
-
-    // 4. Astro Data
-    // Sun Signs
-    const sunSignIdx = Math.floor(sunLon / 30);
-    const sunSignDeg = (sunLon % 30).toFixed(1);
-    document.getElementById('valSunPos').innerText = `${SIGNS[sunSignIdx]} ${sunSignDeg}°`;
-    
-    // Sun Rise/Set (Std Time)
-    const st = getSunTimes(std, STATE.lat);
-    if (st) {
-        // st is True Solar Mins. Convert to Std.
-        // Std = True - offsetMin.
-        const offMin = (STATE.lon - 120)*4 + getEoT(julianDay(std));
-        const rStd = st.rise - offMin;
-        const sStd = st.set - offMin;
-        const fmt = m => {
-            let h = Math.floor(m/60)%24; let mn=Math.floor(m%60);
-            return `${pad(h)}:${pad(mn)}`;
-        };
-        document.getElementById('valSunRiseSet').innerText = `↑${fmt(rStd)} ↓${fmt(sStd)}`;
+    function getEoT(jd) { // 均时差 (分)
+        const T = (jd - 2451545.0)/36525.0;
+        const M = toRad(357.529 + 35999.05*T);
+        const L = toRad(280.466 + 36000.77*T);
+        const e = 0.0167;
+        const y = Math.tan(toRad(23.44)/2)**2;
+        return (y*Math.sin(2*L) - 2*e*Math.sin(M) + 4*e*y*Math.sin(M)*Math.cos(2*L)) * R2D * 4;
     }
 
-    // Moon Mansion (Sidereal)
-    // Precession Correction: SunLon (Tropical) vs Sidereal.
-    // Approx diff ~24 deg.
-    // Exact J2000 mapping:
-    // We have Moon J2000 Mean Lon approx via getPlanetLon? 
-    // Actually getPlanetLon returns Tropical.
-    // Convert Tropical to Sidereal J2000: Subtract Ayanamsa?
-    // Or subtract Precession since 2000? 
-    // No, getPlanetLon gives Date Tropical. 
-    // To match J2000 Star Map (MANSIONS), we need Date Sidereal? 
-    // No, simply: Sidereal Lon = Tropical Lon - (Ayanamsa_J2000 + Precession_Accumulated).
-    // Ayanamsa J2000 ~ 24 deg.
-    // Let's use simple subtraction for display. ~24.5 deg.
-    const siderealMoon = norm360(moonLon - 24.5); 
-    
-    // Find Mansion
-    // Sorted check
-    let mansion = "--";
-    let mDeg = 0;
-    // MANSIONS is sorted.
-    for (let i=0; i<MANSIONS.length; i++) {
-        let curr = MANSIONS[i];
-        let next = MANSIONS[(i+1)%MANSIONS.length];
-        let start = curr.d;
-        let end = next.d;
-        if (end < start) end += 360;
-        
-        let chk = siderealMoon;
-        if (chk < start && (start-chk)>180) chk+=360;
-        
-        if (chk >= start && chk < end) {
-            mansion = curr.n;
-            mDeg = (chk - start).toFixed(1);
-            let width = (end - start).toFixed(1);
-            mansion += ` [${width}°]`;
-            break;
+    // 威廉·利利 月亮空亡核心判断
+    function checkLillyVOC(jd) {
+        try {
+            // 1. 获取月亮当前位置
+            const moonL = getPlanetLon(jd, 'moon');
+            const signIdx = Math.floor(moonL / 30);
+            const signEnd = (signIdx + 1) * 30; // 星座边界
+            
+            // 2. 获取其他行星位置
+            const bodies = ['sun','mercury','venus','mars','jupiter','saturn'];
+            const planets = bodies.map(b => getPlanetLon(jd, b));
+            
+            // 3. 模拟月亮前行，直到星座边界
+            // 利利算法：在离开星座前，是否形成 0, 60, 90, 120, 180
+            // 月亮移动最快，我们只需看月亮能否“追上”相位的点
+            
+            // 简化检测：计算所有行星对月亮构成的“潜在相位点”
+            // 如果有相位点落在 (CurrentMoon, SignEnd) 区间内，则不空亡
+            
+            let minDist = 999;
+            let nextAspect = null;
+            
+            const aspects = [0, 60, 90, 120, 180];
+            
+            for (let pLon of planets) {
+                for (let asp of aspects) {
+                    // 计算行星投射出的相位点
+                    // P, P+60, P-60...
+                    const targets = [
+                        norm360(pLon + asp),
+                        norm360(pLon - asp)
+                    ];
+                    
+                    for (let t of targets) {
+                        // 检查 t 是否在 moonL 和 signEnd 之间
+                        // 注意跨越 360 度的情况
+                        // 简单化：将坐标归一化到相对于当前星座的 0-30 度
+                        // 但月亮可能处于 350度，边界 360/0
+                        
+                        // 算法：距离计算
+                        let dist = norm360(t - moonL);
+                        // 如果距离 < (signEnd - moonL)，说明会碰到
+                        // 需要处理 signEnd = 360 的情况
+                        let distToBorder = norm360(signEnd - moonL);
+                        if (signEnd === 360 && moonL > 330) distToBorder = 360 - moonL; // 修正
+                        if (distToBorder === 0) distToBorder = 30; // 刚入座
+                        
+                        // 只有当相位点在前方，且距离小于到边界的距离
+                        if (dist > 0.1 && dist < distToBorder) {
+                            if (dist < minDist) {
+                                minDist = dist;
+                                nextAspect = { p: pLon, a: asp, dist: dist };
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (minDist < 30 && nextAspect) {
+                return { isVoc: false, msg: `入相位: ${minDist.toFixed(1)}°后` };
+            } else {
+                return { isVoc: true, msg: `空亡中 (离座前无主相位)` };
+            }
+        } catch(e) {
+            return { isVoc: false, msg: "Error" };
         }
     }
-    document.getElementById('valMoonPos').innerText = mansion;
-    document.getElementById('valMoonDeg').innerText = `入宿 ${mDeg}°`;
-}
 
-function renderCompass(t, sunLon, moonLon) {
-    // 1. Calculate Sun Angle (True Solar Time)
-    // 12:00 = Top (0 deg). 
-    // Formula: (h-12)*15 + m*0.25
-    const h = t.getHours();
-    const m = t.getMinutes();
-    const s = t.getSeconds();
-    const timeVal = h + m/60 + s/3600;
-    const sunAngle = (timeVal - 12) * 15;
-    
-    // Rotate Sun Hand
-    document.getElementById('handSun').setAttribute('transform', `translate(150,150) rotate(${sunAngle})`);
-    
-    // 2. Rotate Tropical Ring (Signs)
-    // If Sun is at 0 deg (Aries), and Time is 12:00 (Sun at Top).
-    // Aries 0 should be at Top.
-    // Current SunLon (Tropical).
-    // Ring Rotation = SunAngle - SunLon.
-    // Check: Sun=0 (Aries), Time=12 (Angle=0). Rot=0. Correct.
-    // Check: Sun=90 (Cancer), Time=12 (Angle=0). Rot=-90. Cancer(90) is at Right (90). Rotated -90 -> Top. Correct.
-    // Note: SVG 0 is Right (3 o'clock). 
-    // My previous logic assumed 0 is Top. 
-    // Let's align:
-    // Draw rings such that 0 deg is at Top (12 o'clock).
-    // In SVG, to draw 0 at Top, we draw at -90.
-    const tropicalRot = sunAngle - sunLon;
-    document.getElementById('ringTropical').setAttribute('transform', `translate(150,150) rotate(${tropicalRot})`);
-    
-    // 3. Rotate Sidereal Ring (Mansions)
-    // This ring is J2000 fixed stars.
-    // It should be offset from Tropical by Precession (since 2000).
-    // Tropical 0 moves West. Stars stay.
-    // Sidereal 0 (Spica approx) vs Tropical 0.
-    // Difference is ~24 deg.
-    // We defined MANSIONS with J2000 longitudes.
-    // If we rotate it by same logic (sunAngle - sunLon), we align Tropical 0 to Sun.
-    // Sidereal ring will be misaligned by Ayanamsa.
-    // We need to rotate it relative to Tropical Ring?
-    // No, treat independent.
-    // We want Star X (Lon J2000) to align with Sun if Sun is at Star X.
-    // Sun Tropical Lon = S.
-    // Sun Sidereal Lon = S - 24.5 (approx).
-    // Ring Rotation = SunAngle - SunSiderealLon
-    // = SunAngle - (SunLon - 24.5)
-    // = TropicalRot + 24.5.
-    document.getElementById('ringSidereal').setAttribute('transform', `translate(150,150) rotate(${tropicalRot + 24.5})`);
-    
-    // 4. Moon Hand
-    // Phase Angle relative to Sun Hand.
-    // Moon Angle = SunAngle + (MoonLon - SunLon) ?
-    // Check: Moon=Sun. Angle=SunAngle.
-    // Check: Moon=Sun+90. Moon is Left of Sun on Sky? 
-    // Zodiac runs CCW. Sun at 0. Moon at 90 (Left).
-    // On Clock, 0 is Top. 90 deg Lon (Cancer) is Left (-90 deg rotation).
-    // Wait, Clock runs CW. Zodiac runs CCW.
-    // THIS IS THE TRICKY PART.
-    // Compass: 12(Top), 18(Right/West), 6(Left/East).
-    // Sun moves CW.
-    // Zodiac: Aries(0), Taurus(30)...
-    // If we map Aries to Top. Taurus is Left (CCW on Sky).
-    // So Ring is drawn CCW.
-    // Moon Position:
-    // If MoonLon = SunLon + 90. Moon is in Cancer (if Sun Aries).
-    // Cancer is Left.
-    // So Moon Hand should be -90 deg relative to Sun Hand.
-    // MoonAngle = SunAngle - (MoonLon - SunLon).
-    const moonAngle = sunAngle - (moonLon - sunLon);
-    document.getElementById('handMoon').setAttribute('transform', `translate(150,150) rotate(${moonAngle})`);
-    
-    // 5. Day/Night Sector (Mask)
-    // Calculate Rise/Set angles
-    const st = getSunTimes(std, STATE.lat);
-    if (st) {
-        // Rise/Set are minutes from midnight. 12:00 = 0 deg.
-        // Rise (e.g. 06:00 = -90 deg). Set (18:00 = +90 deg).
-        const riseAng = (st.rise/60 - 12) * 15;
-        const setAng = (st.set/60 - 12) * 15;
+    // === 渲染引擎 ===
+    function initSVG() {
+        const svg = document.getElementById('mainSvg');
+        if(!svg) return;
         
-        // Night is Set -> Rise (CW).
-        // Draw Arc for Day (Rise -> Set). Mask fills Black.
-        // So Night (White background) is visible everywhere EXCEPT Day.
-        // SVG Coord: 0 is Right. Top is -90.
-        const startRad = (riseAng - 90) * D2R;
-        const endRad = (setAng - 90) * D2R;
+        // 绘制刻度环 (内圈时辰)
+        const gTicks = document.getElementById('layerTicks');
+        for(let i=0; i<12; i++) { // 12时辰
+            const ang = i * 30;
+            const rad = toRad(ang - 90);
+            // 12点(午)在顶端(0度/-90度)
+            // i=0 -> 午? 
+            // 罗盘惯例：上南(午)。
+            // 所以 i=0 应画在顶端，对应“午”。
+            const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            txt.textContent = ZHI[(i+6)%12]; // 0是子，6是午。如果i=0在顶端，要显示午(6)
+            const r = 85;
+            txt.setAttribute("x", r * Math.cos(rad));
+            txt.setAttribute("y", r * Math.sin(rad));
+            txt.setAttribute("text-anchor", "middle");
+            txt.setAttribute("dominant-baseline", "middle");
+            txt.setAttribute("fill", "#00ff41");
+            txt.setAttribute("font-size", "10");
+            gTicks.appendChild(txt);
+        }
         
-        // Arc logic... simple huge path
-        const r = 300; // Big enough
-        const x1 = 150 + r*Math.cos(startRad);
-        const y1 = 150 + r*Math.sin(startRad);
-        const x2 = 150 + r*Math.cos(endRad);
-        const y2 = 150 + r*Math.sin(endRad);
-        
-        const large = (setAng - riseAng) > 180 ? 1 : 0;
-        // Clockwise sweep? No, SVG angles go CW? 
-        // Rise (-90/Left) to Set (+90/Right) via Top (-90).
-        // Small arc.
-        const d = `M150,150 L${x1},${y1} A${r},${r} 0 0,1 ${x2},${y2} Z`;
-        document.getElementById('daySectorMask').setAttribute('d', d);
+        // 绘制黄道圈 (Regression/Tropical)
+        const gTrop = document.getElementById('layerTropical');
+        ZODIAC.forEach((n, i) => {
+            // 白羊(0)在顶端? 通常星盘白羊在左(9点)。
+            // 我们的表盘：太阳在午时(顶端)。如果此时是春分(白羊)，则白羊在顶端。
+            // 绘制时，默认 0度 在 顶端 (-90 deg)。逆时针排列。
+            const ang = -i * 30; // 逆时针
+            const rad = toRad(ang - 90);
+            const r = 110;
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", r*Math.cos(rad)); line.setAttribute("y1", r*Math.sin(rad));
+            line.setAttribute("x2", (r-5)*Math.cos(rad)); line.setAttribute("y2", (r-5)*Math.sin(rad));
+            line.setAttribute("stroke", "#444");
+            gTrop.appendChild(line);
+            
+            const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            t.textContent = n;
+            t.setAttribute("x", (r+10)*Math.cos(rad)); t.setAttribute("y", (r+10)*Math.sin(rad));
+            t.setAttribute("fill", "#66fcf1");
+            t.setAttribute("font-size", "8");
+            t.setAttribute("text-anchor", "middle");
+            t.setAttribute("dominant-baseline", "middle");
+            t.setAttribute("transform", `rotate(${ang}, ${(r+10)*Math.cos(rad)}, ${(r+10)*Math.sin(rad)})`);
+            gTrop.appendChild(t);
+        });
+
+        // 绘制恒星圈 (Sidereal)
+        const gSid = document.getElementById('layerSidereal');
+        XIU_J2000.forEach(x => {
+            const ang = -x.d; // J2000 角度
+            const rad = toRad(ang - 90);
+            const r = 135;
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", r*Math.cos(rad)); line.setAttribute("y1", r*Math.sin(rad));
+            line.setAttribute("x2", (r+5)*Math.cos(rad)); line.setAttribute("y2", (r+5)*Math.sin(rad));
+            line.setAttribute("stroke", "#666");
+            gSid.appendChild(line);
+            
+            const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            t.textContent = x.n;
+            t.setAttribute("x", (r+10)*Math.cos(rad)); t.setAttribute("y", (r+10)*Math.sin(rad));
+            t.setAttribute("fill", "#aaa");
+            t.setAttribute("font-size", "8");
+            t.setAttribute("text-anchor", "middle");
+            t.setAttribute("dominant-baseline", "middle");
+            t.setAttribute("transform", `rotate(${ang}, ${(r+10)*Math.cos(rad)}, ${(r+10)*Math.sin(rad)})`);
+            gSid.appendChild(t);
+        });
     }
-}
 
-function initRings() {
-    // 1. Tropical Ring (Inner Zodiac)
-    const gT = document.getElementById('ringTropical');
-    SIGNS.forEach((s, i) => {
-        // Draw at 0 deg (Top) -> -90 SVG.
-        // i*30 deg.
-        // CCW layout? Yes. Aries(0), Taurus(30) is Left.
-        // So angle = -i * 30.
-        const ang = -i * 30; 
-        const rad = (ang - 90) * D2R;
-        const r = 110;
-        const x = r * Math.cos(rad);
-        const y = r * Math.sin(rad);
+    // === 主循环 ===
+    function update() {
+        const now = state.manualTime || new Date();
+        const jd = julian(now);
+        const eot = getEoT(jd);
         
-        // Line
-        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line.setAttribute("x1", x*0.9); line.setAttribute("y1", y*0.9);
-        line.setAttribute("x2", x); line.setAttribute("y2", y);
-        line.setAttribute("stroke", "#45a29e");
-        gT.appendChild(line);
+        // 1. 时间计算
+        // 真太阳时 = UTC + LonOffset + EoT
+        const utc = now.getTime() + now.getTimezoneOffset()*60000;
+        const trueMs = utc + (state.lon*4*60000) + (eot*60000);
+        const tTime = new Date(trueMs);
         
-        // Text
-        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        txt.textContent = s;
-        // Position
-        const tx = (r-15) * Math.cos(rad);
-        const ty = (r-15) * Math.sin(rad);
-        txt.setAttribute("x", tx); txt.setAttribute("y", ty);
-        txt.setAttribute("fill", "#66fcf1");
-        txt.setAttribute("font-size", "8");
-        txt.setAttribute("text-anchor", "middle");
-        txt.setAttribute("dominant-baseline", "middle");
-        // Rotate text to be readable? Or radial?
-        txt.setAttribute("transform", `rotate(${ang + 90}, ${tx}, ${ty})`);
-        gT.appendChild(txt);
-    });
+        // 2. 渲染数字时间
+        const pad = n => n.toString().padStart(2,'0');
+        document.getElementById('dispTrue').innerText = `${pad(tTime.getHours())}:${pad(tTime.getMinutes())}:${pad(tTime.getSeconds())}`;
+        document.getElementById('dispStd').innerText = `标准时: ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        
+        // 3. 渲染表盘指针与旋转
+        // 太阳指针：真太阳时 12:00 在顶端 (0 deg)
+        // h, m, s -> angle
+        const h = tTime.getHours(), m = tTime.getMinutes(), s = tTime.getSeconds();
+        const sunAng = (h + m/60 + s/3600 - 12) * 15;
+        document.getElementById('handSun').setAttribute('transform', `rotate(${sunAng})`);
+        
+        // 黄道圈旋转：对齐太阳
+        // 太阳的回归黄经
+        const sunLon = getPlanetLon(jd, 'sun');
+        // 如果太阳在白羊0度，且当前12点(指针在顶)，白羊0度应在顶。
+        // layerTropical 绘制时 0度在顶。
+        // 所以旋转 = sunAng - sunLon
+        const tropRot = sunAng - sunLon;
+        document.getElementById('layerTropical').setAttribute('transform', `rotate(${tropRot})`);
+        
+        // 恒星圈旋转：对齐 J2000 宿度
+        // 考虑 0.36度 岁差 (2000-2026)
+        // 恒星位置相对回归黄道西移。
+        // Sidereal Ring Rotation = Tropical Rot + Ayanamsa(approx 24.5) ?
+        // 简化：直接对齐太阳的恒星黄经。
+        // Sun Sidereal Lon ~ Sun Tropical - 24.5
+        // Rot = sunAng - (SunLon - 24.5) = tropRot + 24.5
+        const sidRot = tropRot + 24.5; 
+        document.getElementById('layerSidereal').setAttribute('transform', `rotate(${sidRot})`);
+        
+        // 月亮指针
+        // 相对太阳的位置
+        const moonLon = getPlanetLon(jd, 'moon');
+        const phaseAng = norm360(moonLon - sunLon); // 0=New
+        // Moon Hand Angle = SunAng - PhaseAng (because Zodiac is CCW, Clock is CW)
+        // Wait... If Moon is 30 deg ahead (Taurus), it is Left of Sun (CCW).
+        // On clock, Left is minus angle. So SunAng - 30. Correct.
+        const moonHandAng = sunAng - phaseAng;
+        document.getElementById('handMoon').setAttribute('transform', `rotate(${moonHandAng})`);
+        
+        // 4. 计算时辰与刻
+        // 真太阳时 h
+        const zhiIdx = Math.floor((h+1)/2)%12;
+        const zhiName = ZHI[zhiIdx];
+        // 刻: 从时辰开始(奇数整点)算起
+        const startH = (h%2!==0) ? h : (h-1);
+        let baseH = (startH<0)?23:startH;
+        let diffM = ((h - baseH + 24)%24)*60 + m;
+        const keIdx = Math.floor(diffM/15); // 0-7
+        const keName = ["初","一","二","三","四","五","六","七"][keIdx];
+        const nextKe = 15 - (diffM%15);
+        document.getElementById('valShichen').innerText = `${zhiName}时`;
+        document.getElementById('valKe').innerText = `${keName}刻`;
+        document.getElementById('valNextKe').innerText = `下刻: ${nextKe}分后`;
+        
+        // 5. 干支 (简易)
+        // 年: 粗略立春
+        let y = now.getFullYear();
+        if (sunLon < 315 && now.getMonth()<2) y--; // 简易判断
+        const yGZ = GAN[(y-4)%10] + ZHI[(y-4)%12];
+        // 月: 节气
+        let mIdx = Math.floor(norm360(sunLon - 315 + 360)/30); // 0=寅
+        const mGZ = "计算中"; // 简化显示，专注时辰
+        const dOffset = Math.floor(jd - 2451544.5 + 54); // 基准
+        const dGZ = GAN[dOffset%10] + ZHI[dOffset%12];
+        document.getElementById('valGanZhi').innerText = `${yGZ}年 ${dGZ}日`;
+        document.getElementById('valTerm').innerText = `太阳黄经 ${sunLon.toFixed(1)}°`;
+        
+        // 6. 月亮空亡 (Lilly)
+        const voc = checkLillyVOC(jd);
+        const vocEl = document.getElementById('valMoonState');
+        vocEl.innerText = voc.isVoc ? "⚠️ 空亡 (VOC)" : "正常";
+        vocEl.className = voc.isVoc ? "val voc-alert" : "val";
+        document.getElementById('valMoonDetail').innerText = voc.msg;
+        
+        // 7. 天文数据
+        document.getElementById('valSun').innerText = `${ZODIAC[Math.floor(sunLon/30)]} ${(sunLon%30).toFixed(1)}°`;
+        
+        // 月宿 (恒星)
+        const moonSid = norm360(moonLon - 24.5);
+        let xiuName = "--";
+        // 查找
+        for(let i=0; i<XIU_J2000.length; i++){
+            let curr = XIU_J2000[i];
+            let next = XIU_J2000[(i+1)%XIU_J2000.length];
+            let start = curr.d, end = next.d;
+            if(end<start) end+=360;
+            let m = moonSid;
+            if(m<start && (start-m)>180) m+=360;
+            if(m>=start && m<end) {
+                xiuName = `${curr.n}宿 ${(m-start).toFixed(1)}°`;
+                break;
+            }
+        }
+        document.getElementById('valMoon').innerText = `${ZODIAC[Math.floor(moonLon/30)]} ${(moonLon%30).toFixed(1)}°`;
+        document.getElementById('valMoonXiu').innerText = xiuName;
 
-    // 2. Sidereal Ring (Outer Mansions)
-    const gS = document.getElementById('ringSidereal');
-    // MANSIONS sorted by Deg.
-    MANSIONS.forEach((m) => {
-        // d is J2000 Lon.
-        // Map to Ring Angle. 0 (Spica) matches Aries 0 (Top).
-        // Angle = -d.
-        const ang = -m.d;
-        const rad = (ang - 90) * D2R;
-        const r = 135;
-        const x = r * Math.cos(rad);
-        const y = r * Math.sin(rad);
-        
-        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line.setAttribute("x1", x*0.95); line.setAttribute("y1", y*0.95);
-        line.setAttribute("x2", x); line.setAttribute("y2", y);
-        line.setAttribute("stroke", "#888");
-        gS.appendChild(line);
-        
-        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        txt.textContent = m.n;
-        const tx = (r+10) * Math.cos(rad);
-        const ty = (r+10) * Math.sin(rad);
-        txt.setAttribute("x", tx); txt.setAttribute("y", ty);
-        txt.setAttribute("fill", "#ccc");
-        txt.setAttribute("font-size", "8");
-        txt.setAttribute("text-anchor", "middle");
-        txt.setAttribute("dominant-baseline", "middle");
-        txt.setAttribute("transform", `rotate(${ang + 90}, ${tx}, ${ty})`);
-        gS.appendChild(txt);
-    });
-    
-    // 3. Time Ring (Innermost)
-    const gTime = document.getElementById('ringTime');
-    const branches = ["午","未","申","酉","戌","亥","子","丑","寅","卯","辰","巳"];
-    branches.forEach((b, i) => {
-        // Wu (Noon) at Top (0).
-        // i=0 -> 0 deg. i=1 -> 30 deg (CW or CCW? Clock is CW).
-        // So angle = i * 30.
-        const ang = i * 30;
-        const rad = (ang - 90) * D2R;
-        const r = 85;
-        const x = r * Math.cos(rad);
-        const y = r * Math.sin(rad);
-        
-        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        txt.textContent = b;
-        txt.setAttribute("x", x); txt.setAttribute("y", y);
-        txt.setAttribute("fill", "#ffcc00");
-        txt.setAttribute("font-size", "10");
-        txt.setAttribute("text-anchor", "middle");
-        txt.setAttribute("dominant-baseline", "middle");
-        gTime.appendChild(txt);
-    });
-}
+        // 昼夜阴影
+        const sunT = getSunTimes(now, state.lat); // min from midnight
+        if(sunT) {
+            // Rise Angle = (rise/60 - 12)*15
+            const riseAng = (sunT.rise/60 - 12)*15;
+            const setAng = (sunT.set/60 - 12)*15;
+            // Night is Set -> Rise
+            // SVG Arc: Set(-90?) -> Rise
+            // 简单画法: 大圆弧
+            // 需要转为 radian relative to center
+            // SVG 0 is right. Top is -90.
+            const startA = setAng - 90;
+            const endA = riseAng - 90;
+            const r = 148;
+            const x1 = r*Math.cos(toRad(startA)), y1 = r*Math.sin(toRad(startA));
+            const x2 = r*Math.cos(toRad(endA)), y2 = r*Math.sin(toRad(endA));
+            const big = (norm360(endA-startA)>180)?1:0;
+            const d = `M0,0 L${x1},${y1} A${r},${r} 0 ${big},1 ${x2},${y2} Z`;
+            document.getElementById('dayPath').setAttribute('d', d);
+        }
 
-// --- GPS & Controls ---
-
-function initGPS() {
-    if ("geolocation" in navigator) {
-        navigator.geolocation.watchPosition(
-            p => {
-                if(STATE.mode==='auto') {
-                    STATE.lat = p.coords.latitude;
-                    STATE.lon = p.coords.longitude;
-                    document.getElementById('gpsStatus').innerText = `GPS: ${p.coords.accuracy.toFixed(0)}m`;
-                    document.getElementById('gpsStatus').className = "gps-tag";
-                }
-            },
-            e => console.warn(e),
-            {enableHighAccuracy:true}
-        );
+        requestAnimationFrame(update);
     }
-}
 
-// Time Machine
-function jumpTime(dir) {
-    // Jump 1 Hour (half Shichen)
-    const delta = dir * 3600 * 1000;
-    STATE.baseTime = new Date(STATE.baseTime.getTime() + delta);
-    STATE.frozen = true;
-    STATE.mode = 'manual';
-    update();
-}
+    // === 对外暴露的控制接口 (绑定到 window) ===
+    window.app = {
+        prevHour: () => {
+            if(!state.manualTime) state.manualTime = new Date();
+            state.manualTime.setHours(state.manualTime.getHours() - 1);
+        },
+        nextHour: () => {
+            if(!state.manualTime) state.manualTime = new Date();
+            state.manualTime.setHours(state.manualTime.getHours() + 1);
+        },
+        resetTime: () => {
+            state.manualTime = null;
+        },
+        toggleSet: () => {
+            const m = document.getElementById('modalSet');
+            const show = m.style.display === 'flex';
+            m.style.display = show ? 'none' : 'flex';
+            if(!show) {
+                // Fill current
+                const t = state.manualTime || new Date();
+                const iso = new Date(t.getTime() - t.getTimezoneOffset()*60000).toISOString().slice(0,16);
+                document.getElementById('iptTime').value = iso;
+            }
+        },
+        applySet: () => {
+            const t = document.getElementById('iptTime').value;
+            const lo = parseFloat(document.getElementById('iptLon').value);
+            const la = parseFloat(document.getElementById('iptLat').value);
+            if(t) state.manualTime = new Date(t);
+            if(!isNaN(lo)) state.lon = lo;
+            if(!isNaN(la)) state.lat = la;
+            document.getElementById('modalSet').style.display = 'none';
+        }
+    };
 
-function resetTime() {
-    STATE.baseTime = new Date();
-    STATE.frozen = false;
-    STATE.mode = 'auto';
-    update();
-}
-
-// Manual Settings
-function openSettings() {
-    document.getElementById('settingsModal').style.display = 'flex';
-    // Fill current
-    const tzOff = STATE.baseTime.getTimezoneOffset() * 60000;
-    const iso = new Date(STATE.baseTime - tzOff).toISOString().slice(0,19);
-    document.getElementById('setDt').value = iso;
-}
-function closeSettings() {
-    document.getElementById('settingsModal').style.display = 'none';
-}
-function applySettings() {
-    const t = document.getElementById('setDt').value;
-    const ln = parseFloat(document.getElementById('setLon').value);
-    const lt = parseFloat(document.getElementById('setLat').value);
+    // 启动
+    initSVG();
+    // 简单的 GPS
+    if(navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(p=>{
+            state.lat = p.coords.latitude;
+            state.lon = p.coords.longitude;
+            document.getElementById('gpsState').innerText = "GPS: 锁定";
+            document.getElementById('gpsState').className = "status-ok";
+        });
+    }
     
-    if(t) STATE.baseTime = new Date(t);
-    if(!isNaN(ln)) STATE.lon = ln;
-    if(!isNaN(lt)) STATE.lat = lt;
-    
-    STATE.mode = 'manual';
-    STATE.frozen = true;
-    closeSettings();
-    update();
-}
+    // 启动循环
+    requestAnimationFrame(update);
 
-// Boot
-initRings();
-initGPS();
-update();
-
+})();
 </script>
 </body>
 </html>

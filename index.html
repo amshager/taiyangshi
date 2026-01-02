@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>天文时系统 Base</title>
+    <title>天文时系统 V4.0 (UI重构)</title>
     <style>
-        /* === 1. 核心视觉系统 (Visual System) === */
         :root {
             --bg: #000000;
-            --panel: #0f1012;
             --text: #e0e0e0;
             --accent: #00ff41; /* 矩阵绿 */
-            --gold: #ffcc00;   /* 太阳金 */
-            --cyan: #66fcf1;   /* 数据蓝 */
+            --gold: #ffcc00;   /* 太阳 */
+            --moon: #00ccff;   /* 月亮 */
             --dim: #444;
+            --ring-bg: #111;
+            --border: #222;
         }
         body {
             background: var(--bg);
@@ -23,304 +23,534 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
+            align-items: center;
             overflow: hidden;
         }
 
-        /* === 2. 布局组件 (Layout) === */
-        /* 顶部状态栏 */
         .header {
-            padding: 10px 15px;
-            border-bottom: 1px solid #222;
-            display: flex;
-            justify-content: space-between;
+            width: 100%;
+            padding: 8px 15px;
             font-size: 11px;
             background: #050505;
-            z-index: 10;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
         }
-        .status-ok { color: var(--accent); }
-        .status-bad { color: #f00; }
 
-        /* 滚动内容区 */
         .viewport {
             flex: 1;
-            overflow-y: auto;
             display: flex;
             flex-direction: column;
+            justify-content: center;
             align-items: center;
-            padding-bottom: 80px; /* 底部留白 */
+            width: 100%;
         }
 
-        /* 罗盘容器 */
-        .compass-container {
-            width: 340px;
-            height: 340px;
-            margin: 20px 0;
+        /* 核心罗盘容器 */
+        .chart-container {
+            width: 360px;
+            height: 360px;
             position: relative;
         }
 
-        /* 数字时间 */
-        .digital-clock { text-align: center; margin-bottom: 15px; }
-        .time-display {
-            font-size: 2.8rem;
-            font-weight: 300;
-            color: var(--accent);
-            letter-spacing: 2px;
-            font-variant-numeric: tabular-nums; /* 等宽数字，防止秒针跳动抖动 */
-        }
-        .std-display { font-size: 0.9rem; color: #666; margin-top: 5px; }
-
-        /* 数据卡片网格 */
-        .dashboard {
+        /* 数据显示区 */
+        .info-panel {
+            margin-top: 20px;
             width: 90%;
-            max-width: 400px;
+            max-width: 360px;
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
+            font-size: 12px;
         }
-        .card {
-            background: var(--panel);
-            border: 1px solid #333;
-            padding: 12px;
-            border-radius: 6px;
-        }
-        .card-full { grid-column: span 2; }
-        .lbl { font-size: 10px; color: #666; text-transform: uppercase; display: block; margin-bottom: 4px; }
-        .val { font-size: 14px; font-weight: bold; color: var(--text); }
-        
-        /* 底部控制栏 */
-        .controls {
-            position: fixed;
-            bottom: 0;
-            width: 100%;
-            background: rgba(10,10,10,0.95);
-            border-top: 1px solid #333;
-            padding: 15px;
+        .data-row {
             display: flex;
-            justify-content: center;
-            gap: 15px;
+            justify-content: space-between;
+            border-bottom: 1px solid #222;
+            padding-bottom: 2px;
         }
-        .btn {
-            background: #222; color: #fff; border: 1px solid #444;
-            padding: 10px 20px; border-radius: 4px; cursor: pointer;
+        .data-lbl { color: #888; }
+        .data-val { color: var(--accent); font-weight: bold; }
+
+        .clock-digital {
+            font-size: 32px;
+            font-weight: 300;
+            color: var(--text);
+            letter-spacing: 2px;
+            margin-bottom: 5px;
+            font-variant-numeric: tabular-nums;
         }
-        .btn:active { background: var(--accent); color: #000; }
+        .clock-sub { font-size: 12px; color: #666; }
+
     </style>
 </head>
 <body>
 
     <div class="header">
-        <span id="gpsInfo" class="status-bad">GPS: 初始化...</span>
-        <span>Astro-Chronometer V3.5</span>
+        <span id="gpsState" style="color:#f00">GPS: ...</span>
+        <span>Astro V4.0</span>
     </div>
 
     <div class="viewport">
-        <div class="compass-container">
-            <svg viewBox="0 0 300 300" width="100%" height="100%">
+        <div style="text-align:center; margin-bottom:10px;">
+            <div class="clock-digital" id="digiTime">00:00:00</div>
+            <div class="clock-sub" id="digiStd">标准时 00:00</div>
+        </div>
+
+        <div class="chart-container">
+            <svg viewBox="0 0 400 400" width="100%" height="100%" id="mainSvg">
                 <defs>
-                    <mask id="nightMask">
-                        <rect x="-150" y="-150" width="600" height="600" fill="white"/>
-                        <path id="daySectorMask" d="M0,0" fill="black" />
-                    </mask>
+                    <pattern id="hatch" patternUnits="userSpaceOnUse" width="4" height="4">
+                        <path d="M-1,1 l2,-2 M0,4 l4,-4 M3,5 l2,-2" style="stroke:#333; stroke-width:1" />
+                    </pattern>
                 </defs>
 
-                <circle cx="150" cy="150" r="148" fill="#050505" stroke="#333" stroke-width="1"/>
-                <circle cx="150" cy="150" r="148" fill="rgba(0, 30, 80, 0.5)" mask="url(#nightMask)" />
+                <g id="layerStars" transform="translate(200,200)"></g>
 
-                <g transform="translate(150,150)">
+                <g id="layerZodiac" transform="translate(200,200)"></g>
+
+                <g id="layerClock" transform="translate(200,200)">
+                    <circle r="85" fill="#080808" stroke="#333" stroke-width="1"/>
                     
-                    <g id="layerFixed"></g>
+                    <path id="nightSector" d="" fill="url(#hatch)" opacity="0.6"/>
+                    
+                    <g id="clockTicks"></g>
+                    
+                    <g id="clockLabels"></g>
 
-                    <g id="layerZodiac"></g>
-
-                    <g id="layerStars"></g>
-
-                    <g id="handSun">
-                        <line x1="0" y1="0" x2="0" y2="-110" stroke="var(--gold)" stroke-width="2" />
-                        <circle cx="0" cy="-110" r="4" fill="var(--gold)" />
+                    <g id="handHour">
+                        <line y2="-55" stroke="#ccc" stroke-width="3" stroke-linecap="round"/>
                     </g>
-                    <g id="handMoon">
-                        <line x1="0" y1="0" x2="0" y2="-130" stroke="var(--cyan)" stroke-width="1.5" stroke-dasharray="4,2" />
-                        <circle cx="0" cy="-130" r="3" fill="#000" stroke="var(--cyan)" stroke-width="1"/>
+                    <g id="handMin">
+                        <line y2="-75" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+                        <circle cy="-75" r="2" fill="var(--accent)"/>
                     </g>
+                    <circle r="3" fill="#666"/>
                 </g>
-
-                <circle cx="150" cy="150" r="3" fill="#fff" />
             </svg>
         </div>
 
-        <div class="digital-clock">
-            <div class="time-display" id="clockTrue">00:00:00</div>
-            <div class="std-display" id="clockStd">标准时 00:00:00</div>
+        <div class="info-panel">
+            <div class="data-row">
+                <span class="data-lbl">太阳(回归)</span>
+                <span class="data-val" id="valSunTrop">--</span>
+            </div>
+            <div class="data-row">
+                <span class="data-lbl">月亮(回归)</span>
+                <span class="data-val" id="valMoonTrop">--</span>
+            </div>
+            <div class="data-row">
+                <span class="data-lbl">月躔(恒星)</span>
+                <span class="data-val" id="valMoonSid">--</span>
+            </div>
+             <div class="data-row">
+                <span class="data-lbl">时辰</span>
+                <span class="data-val" id="valShichen">--</span>
+            </div>
         </div>
-
-        <div class="dashboard">
-            <div class="card card-full">
-                <span class="lbl">时辰 (Time Period)</span>
-                <span class="val" id="valShichen" style="color:var(--gold)">--时 --刻</span>
-            </div>
-            <div class="card">
-                <span class="lbl">太阳 (Sun)</span>
-                <span class="val" id="valSun">--</span>
-            </div>
-            <div class="card">
-                <span class="lbl">月亮 (Moon)</span>
-                <span class="val" id="valMoon">--</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="controls">
-        <button class="btn" onclick="APP.reset()">复位 (Reset)</button>
     </div>
 
 <script>
-/**
- * 模块化重构 - V3.5 基石版
- * 目标：确保渲染循环 (Render Loop) 稳定运行，秒针平滑。
- */
-
-// 1. 常量定义
-const D2R = Math.PI / 180;
-const ZHI = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
-// 简易黄道十二宫 (占位，后续用精准数据)
+// === 1. 基础配置与常量 ===
+const PI = Math.PI, D2R = PI/180;
 const ZODIAC = ["白羊","金牛","双子","巨蟹","狮子","处女","天秤","天蝎","射手","摩羯","水瓶","双鱼"];
-// 简易二十八宿 (占位)
-const STARS = ["角","亢","氐","房","心","尾","箕","斗","牛","女","虚","危","室","壁","奎","娄","胃","昴","毕","觜","参","井","鬼","柳","星","张","翼","轸"];
+const ZHI = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
+// J2000 恒星宿度 (现代测量)
+const XIU = [
+    {n:"角",d:201.2}, {n:"亢",d:212.3}, {n:"氐",d:221.7}, {n:"房",d:238.6},
+    {n:"心",d:244.7}, {n:"尾",d:252.0}, {n:"箕",d:268.3}, {n:"斗",d:277.6},
+    {n:"牛",d:302.3}, {n:"女",d:309.8}, {n:"虚",d:321.2}, {n:"危",d:331.0},
+    {n:"室",d:348.6}, {n:"壁",d:5.1},   {n:"奎",d:10.5},  {n:"娄",d:24.5},
+    {n:"胃",d:37.8},  {n:"昴",d:52.3},  {n:"毕",d:61.2},  
+    {n:"觜",d:76.8},  {n:"参",d:77.8}, 
+    {n:"井",d:88.6},  {n:"鬼",d:120.5}, {n:"柳",d:124.9},
+    {n:"星",d:139.3}, {n:"张",d:147.2}, {n:"翼",d:164.7}, {n:"轸",d:184.4}
+];
 
-// 2. 状态管理
 const STATE = {
-    lat: 39.90,
-    lon: 116.40,
-    now: new Date()
+    lat: 39.90, lon: 116.40 // 默认
 };
 
-// 3. 核心工具函数
-function pad(n) { return n.toString().padStart(2,'0'); }
+// === 2. 绘图辅助函数 ===
 
-// 4. 初始化绘制 (静态部分)
-function initLayers() {
-    // 绘制内圈时辰 (子在下，午在上)
-    const g = document.getElementById('layerFixed');
-    for(let i=0; i<12; i++) {
-        // i=0(子) -> 180度, i=6(午) -> 0度
-        // 角度 = (i + 6) * 30
-        const ang = (i + 6) * 30;
-        const rad = (ang - 90) * D2R; // SVG 0度在右边
-        const r = 85;
+// 生成甜甜圈扇区路径 (Donut Segment)
+function describeArc(x, y, rInner, rOuter, startAngle, endAngle) {
+    // 角度转弧度 (SVG 0度在3点钟，顺时针)
+    // 我们输入习惯：0度在12点，逆时针? 
+    // 统一输入：以 0=Top, CW 为准 (Clock logic) 或者 0=Right, CCW (Math).
+    // 这里采用: 0=Top (12点), CW (顺时针)
+    
+    function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+        var angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+        return {
+            x: centerX + (radius * Math.cos(angleInRadians)),
+            y: centerY + (radius * Math.sin(angleInRadians))
+        };
+    }
+
+    var start = polarToCartesian(x, y, rOuter, endAngle);
+    var end = polarToCartesian(x, y, rOuter, startAngle);
+    var start2 = polarToCartesian(x, y, rInner, endAngle);
+    var end2 = polarToCartesian(x, y, rInner, startAngle);
+
+    var largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+
+    var d = [
+        "M", start.x, start.y,
+        "A", rOuter, rOuter, 0, largeArcFlag, 0, end.x, end.y,
+        "L", end2.x, end2.y,
+        "A", rInner, rInner, 0, largeArcFlag, 1, start2.x, start2.y,
+        "Z"
+    ].join(" ");
+
+    return d;
+}
+
+// 绘制标记 (Sun/Moon Marker)
+function drawMarker(parent, angle, rInner, rOuter, color, type) {
+    // Angle: 0=Top, CW.
+    const rad = (angle - 90) * D2R;
+    const rMid = (rInner + rOuter) / 2;
+    const cx = rMid * Math.cos(rad);
+    const cy = rMid * Math.sin(rad);
+    
+    // 刻度线形式
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", rInner * Math.cos(rad));
+    line.setAttribute("y1", rInner * Math.sin(rad));
+    line.setAttribute("x2", rOuter * Math.cos(rad));
+    line.setAttribute("y2", rOuter * Math.sin(rad));
+    line.setAttribute("stroke", color);
+    line.setAttribute("stroke-width", "2");
+    parent.appendChild(line);
+
+    // 图标 (圆点)
+    /* const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", cx);
+    circle.setAttribute("cy", cy);
+    circle.setAttribute("r", "3");
+    circle.setAttribute("fill", color);
+    parent.appendChild(circle);
+    */
+}
+
+// === 3. 初始化表盘结构 (静态部分) ===
+function initUI() {
+    
+    // A. 绘制 Layer 3: 二十八宿 (外圈)
+    // 半径: 135 - 170
+    const gStars = document.getElementById('layerStars');
+    const rInner = 135, rOuter = 170;
+    
+    // 绘制分宫圆环
+    // 注意：恒星黄道是逆时针排列。我们将 角宿(Spica) 放在 0度 (12点) ? 
+    // 或者按照实际黄经角度放置。
+    // 为了直观，我们让 0度(白羊起点) 对应 12点。
+    // 恒星黄经(J2000) 0度 约等于 回归黄经 -24度。
+    // 这里我们直接按度数画，0度在顶端，逆时针增长 (CCW)。
+    // 但是 describeArc 是 CW。
+    // 输入 angle = -degree.
+    
+    for(let i=0; i<XIU.length; i++) {
+        let curr = XIU[i];
+        let next = XIU[(i+1)%XIU.length];
+        let startD = curr.d;
+        let endD = next.d;
+        if(endD < startD) endD += 360;
         
+        // 转换为 describeArc 需要的 CW 角度
+        // 0度(Top) -> -0. 90度(Left) -> -90 = 270.
+        // 数学角度 (CCW from Right) to Clock Angle (CW from Top).
+        // Math 0 (Right) = Clock 90.
+        // Math 90 (Top) = Clock 0.
+        // Math 180 (Left) = Clock 270.
+        // Math 270 (Bottom) = Clock 180.
+        // Formula: ClockAng = (90 - MathAng + 360) % 360.
+        
+        // 此处 d 为黄经 (CCW from Vernal Equinox).
+        // 我们把 Vernal Equinox (0) 放在 12点 (Clock 0).
+        // 则 ClockAng = -MathAng.
+        
+        const cStart = -startD;
+        const cEnd = -endD;
+        
+        // describeArc 只能画 CW，所以从 cEnd 画到 cStart (数值上 cEnd < cStart)
+        // e.g. Start=0, End=10. ClockStart=0, ClockEnd=-10 (350).
+        // Draw 350 -> 360.
+        
+        const pathStr = describeArc(0,0, rInner, rOuter, 360-endD, 360-startD);
+        
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", pathStr);
+        path.setAttribute("fill", "transparent");
+        path.setAttribute("stroke", "#333");
+        path.setAttribute("stroke-width", "1");
+        gStars.appendChild(path);
+        
+        // 文字
+        let midD = (startD + endD)/2;
+        let rad = (90 - midD) * D2R; // Math rad
+        let txtR = (rInner+rOuter)/2;
+        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        txt.textContent = curr.n;
+        txt.setAttribute("x", txtR * Math.cos(rad));
+        txt.setAttribute("y", txtR * Math.sin(rad));
+        txt.setAttribute("fill", "#666");
+        txt.setAttribute("font-size", "9");
+        txt.setAttribute("text-anchor", "middle");
+        txt.setAttribute("dominant-baseline", "middle");
+        // 旋转文字
+        txt.setAttribute("transform", `rotate(${-midD}, ${txtR * Math.cos(rad)}, ${txtR * Math.sin(rad)})`);
+        gStars.appendChild(txt);
+    }
+
+    // B. 绘制 Layer 2: 回归黄道 (中圈)
+    // 半径: 95 - 125
+    const gZodiac = document.getElementById('layerZodiac');
+    const zInner = 95, zOuter = 125;
+    
+    for(let i=0; i<12; i++) {
+        // 每个宫30度. 0=白羊.
+        let startD = i*30;
+        let endD = (i+1)*30;
+        
+        const pathStr = describeArc(0,0, zInner, zOuter, 360-endD, 360-startD);
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", pathStr);
+        path.setAttribute("fill", "transparent");
+        path.setAttribute("stroke", "#333");
+        gZodiac.appendChild(path);
+        
+        // 文字
+        let midD = startD + 15;
+        let rad = (90 - midD) * D2R;
+        let txtR = (zInner+zOuter)/2;
+        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        txt.textContent = ZODIAC[i];
+        txt.setAttribute("x", txtR * Math.cos(rad));
+        txt.setAttribute("y", txtR * Math.sin(rad));
+        txt.setAttribute("fill", "#888");
+        txt.setAttribute("font-size", "9");
+        txt.setAttribute("text-anchor", "middle");
+        txt.setAttribute("dominant-baseline", "middle");
+        txt.setAttribute("transform", `rotate(${-midD}, ${txtR * Math.cos(rad)}, ${txtR * Math.sin(rad)})`);
+        gZodiac.appendChild(txt);
+    }
+
+    // C. 绘制 Layer 1: 内层时钟刻度
+    const gTicks = document.getElementById('clockTicks');
+    const gLabels = document.getElementById('clockLabels');
+    
+    // 24小时制，12点(午)在上。
+    // 刻度: 0.5小时一个. 共48个.
+    for(let i=0; i<48; i++) {
+        const isHour = (i%2 === 0);
+        const deg = i * (360/48); // 7.5度
+        // 0刻度对应12点(Top).
+        const rad = (deg - 90) * D2R;
+        const r1 = 80;
+        const r2 = isHour ? 70 : 75;
+        
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", r1 * Math.cos(rad));
+        line.setAttribute("y1", r1 * Math.sin(rad));
+        line.setAttribute("x2", r2 * Math.cos(rad));
+        line.setAttribute("y2", r2 * Math.sin(rad));
+        line.setAttribute("stroke", isHour ? "#555" : "#333");
+        line.setAttribute("stroke-width", isHour ? 2 : 1);
+        gTicks.appendChild(line);
+    }
+    
+    // 12地支文字 (12点=午, 0点=子)
+    // 午在Top (0 deg). 子在Bottom (180 deg).
+    for(let i=0; i<12; i++) {
+        // i=0 -> 子. 
+        // 映射: 0(子)->180, 6(午)->0.
+        // Angle = (i+6)*30 % 360.
+        const ang = (i+6)*30;
+        const rad = (ang - 90) * D2R;
+        const r = 62;
         const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
         txt.textContent = ZHI[i];
         txt.setAttribute("x", r * Math.cos(rad));
         txt.setAttribute("y", r * Math.sin(rad));
-        txt.setAttribute("fill", "var(--accent)");
+        txt.setAttribute("fill", "#666");
         txt.setAttribute("font-size", "12");
         txt.setAttribute("text-anchor", "middle");
         txt.setAttribute("dominant-baseline", "middle");
-        // 让文字正立
-        // txt.setAttribute("transform", `rotate(${ang+90} ${r*Math.cos(rad)} ${r*Math.sin(rad)})`);
-        g.appendChild(txt);
-    }
-
-    // 绘制黄道圈 (简易示意)
-    const gZ = document.getElementById('layerZodiac');
-    for(let i=0; i<12; i++) {
-        const ang = -i * 30; // 逆时针
-        const rad = (ang - 90) * D2R;
-        const r = 110;
-        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line.setAttribute("x1", r*Math.cos(rad)); line.setAttribute("y1", r*Math.sin(rad));
-        line.setAttribute("x2", (r-5)*Math.cos(rad)); line.setAttribute("y2", (r-5)*Math.sin(rad));
-        line.setAttribute("stroke", "#444");
-        gZ.appendChild(line);
-        
-        const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        t.textContent = ZODIAC[i];
-        t.setAttribute("x", (r+12)*Math.cos(rad)); t.setAttribute("y", (r+12)*Math.sin(rad));
-        t.setAttribute("fill", "#66fcf1");
-        t.setAttribute("font-size", "8");
-        t.setAttribute("text-anchor", "middle");
-        t.setAttribute("dominant-baseline", "middle");
-        t.setAttribute("transform", `rotate(${ang} ${(r+12)*Math.cos(rad)} ${(r+12)*Math.sin(rad)})`);
-        gZ.appendChild(t);
+        gLabels.appendChild(txt);
     }
 }
 
-// 5. 主循环 (Heartbeat)
+// === 4. 天文计算引擎 (简易版) ===
+function getEoT(jd) {
+    const n = jd - 2451545.0;
+    const L = 280.460 + 0.9856474 * n;
+    const g = 357.528 + 0.9856003 * n;
+    const lRad = L*D2R; const gRad = g*D2R;
+    return -1*(1.915*Math.sin(gRad) + 0.020*Math.sin(2*gRad)) * 4; // Approx
+}
+
+function getSunLon(jd) {
+    const n = jd - 2451545.0;
+    const L = 280.460 + 0.9856474 * n;
+    const g = 357.528 + 0.9856003 * n;
+    const lRad = L*D2R; const gRad = g*D2R;
+    const lambda = L + 1.915*Math.sin(gRad) + 0.020*Math.sin(2*gRad);
+    return (lambda % 360 + 360) % 360;
+}
+
+function getMoonLon(jd) {
+    const n = jd - 2451545.0;
+    const L = 218.316 + 13.176396 * n;
+    const M = 134.963 + 13.064993 * n;
+    const lRad = L*D2R; const mRad = M*D2R;
+    const lambda = L + 6.289 * Math.sin(mRad);
+    return (lambda % 360 + 360) % 360;
+}
+
+function getSunTimes(date, lat) {
+    // 简易日出日落计算 (返回分钟数 0-1440)
+    // 省略复杂公式，使用近似: 6:00 - Delta, 18:00 + Delta
+    // 真实项目中应用完整 NOAA 算法
+    // 这里为了演示动态昼夜背景:
+    const jd = (date.getTime()/86400000) + 2440587.5;
+    const sl = getSunLon(jd);
+    const dec = Math.asin(Math.sin(sl*D2R) * Math.sin(23.44*D2R)) * 180/PI;
+    const cosH = -Math.tan(lat*D2R) * Math.tan(dec*D2R);
+    if(cosH > 1) return {rise:0, set:0}; // 极夜
+    if(cosH < -1) return {rise:0, set:1440}; // 极昼
+    const H = Math.acos(cosH) * 180/PI;
+    const rise = 720 - H*4;
+    const set = 720 + H*4;
+    return {rise, set};
+}
+
+// === 5. 动态更新 ===
 function update() {
     const now = new Date();
-    STATE.now = now;
-
-    // --- A. 真太阳时计算 (简易版 for testing) ---
-    // 假设均时差为0，仅计算经度差 (为了测试秒针)
-    // 真实版本会在这里加入 EoT
+    const utc = now.getTime() + now.getTimezoneOffset()*60000;
+    const jd = (utc/86400000) + 2440587.5; // UTC JD
+    
+    // 计算真太阳时
+    // Lon Offset: (Lon - 120) * 4
     const offsetMin = (STATE.lon - 120) * 4;
-    const trueTimeMs = now.getTime() + offsetMin * 60000;
-    const tTime = new Date(trueTimeMs);
-
-    // --- B. 界面更新 ---
+    // EoT
+    const eot = getEoT(jd); 
+    const trueMs = utc + (offsetMin + eot) * 60000;
+    const tTime = new Date(trueMs);
     
-    // B1. 数字时间
-    document.getElementById('clockTrue').innerText = 
+    // 更新数字时钟
+    const pad = n => n.toString().padStart(2,'0');
+    document.getElementById('digiTime').innerText = 
         `${pad(tTime.getHours())}:${pad(tTime.getMinutes())}:${pad(tTime.getSeconds())}`;
-    document.getElementById('clockStd').innerText = 
+    document.getElementById('digiStd').innerText = 
         `标准时 ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-
-    // B2. 罗盘指针 (重点检查这里！)
-    const h = tTime.getHours();
-    const m = tTime.getMinutes();
-    const s = tTime.getSeconds();
-    const ms = tTime.getMilliseconds();
+        
+    // 更新指针 (真太阳时)
+    // 12点在Top. 24小时制.
+    // Hour Angle: (h + m/60 - 12) * 15. 
+    // Top=0.
+    const h = tTime.getHours(), m = tTime.getMinutes(), s = tTime.getSeconds();
+    const hAng = (h + m/60 + s/3600 - 12) * 15;
+    const mAng = (m + s/60) * 6; // 分针 0-360
     
-    // 计算太阳角度 (平滑移动)
-    // 12:00 = 0度
-    // 角度 = (h + m/60 + s/3600 - 12) * 15
-    const sunAngle = ((h + m/60 + s/3600 + ms/3600000) - 12) * 15;
-    document.getElementById('handSun').setAttribute('transform', `rotate(${sunAngle})`);
+    document.getElementById('handHour').setAttribute('transform', `rotate(${hAng})`);
+    document.getElementById('handMin').setAttribute('transform', `rotate(${mAng})`); // 分针标准走法
 
-    // 月亮指针 (模拟: 落后太阳一些)
-    const moonAngle = sunAngle - 30; // 假数据，测试旋转
-    document.getElementById('handMoon').setAttribute('transform', `rotate(${moonAngle})`);
+    // 更新昼夜背景 (Based on Lat/Lon)
+    const st = getSunTimes(now, STATE.lat);
+    // Convert Rise/Set mins to Clock Angles
+    // 12:00 = 0 deg. 
+    // Rise (e.g. 6:00 = 360 min) -> (6-12)*15 = -90.
+    const riseAng = (st.rise/60 - 12) * 15;
+    const setAng = (st.set/60 - 12) * 15;
+    // Night Sector is from Set to Rise (CW)
+    // Top=0. CW angle.
+    // 18:00 (Set) = 90 deg. 06:00 (Rise) = 270 deg.
+    // SVG coordinate system 0 is Right (90 clock).
+    // describeArc takes Clock angles if we adjust inputs.
+    // describeArc logic: 0=Top, CW. 
+    // Night: Start at Set, End at Rise.
+    // Note: describeArc logic expects end > start or handles large arc.
+    let nightPath = "";
+    if (st.rise !== st.set) {
+         // calculate clockwise distance
+         let dist = riseAng - setAng;
+         if (dist < 0) dist += 360;
+         nightPath = describeArc(0,0, 0, 85, setAng, riseAng);
+    }
+    document.getElementById('nightSector').setAttribute('d', nightPath);
 
-    // 黄道层旋转 (对齐太阳)
-    // 假设太阳在白羊0度 (Mock)
-    const sunLon = 0; 
-    const tropRot = sunAngle - sunLon;
-    document.getElementById('layerZodiac').setAttribute('transform', `rotate(${tropRot})`);
+    // 更新外层日月标记 (独立计算)
+    const sunLon = getSunLon(jd);
+    const moonLon = getMoonLon(jd);
+    
+    // Layer 2: Tropical Markers (Sun/Moon)
+    // Clock Angle = -Math Angle (CCW)
+    const sunTropAng = -sunLon;
+    const moonTropAng = -moonLon;
+    
+    // Clear old markers
+    const gZ = document.getElementById('layerZodiac');
+    // Keep static paths, remove markers (lines with stroke-width 2)
+    // Hack: remove elements with stroke-width 2
+    Array.from(gZ.children).forEach(el => {
+        if(el.getAttribute('stroke-width')==="2") gZ.removeChild(el);
+    });
+    
+    drawMarker(gZ, 360-sunLon, 95, 125, "var(--gold)", "line");
+    drawMarker(gZ, 360-moonLon, 95, 125, "var(--moon)", "line");
+    
+    // Layer 3: Sidereal Markers (Sun/Moon)
+    // Sidereal = Tropical - Ayanamsa/Precession (~24.5 for J2000)
+    // Or just align visually.
+    const precess = 24.5;
+    const sunSid = sunLon - precess;
+    const moonSid = moonLon - precess;
+    
+    const gS = document.getElementById('layerStars');
+    Array.from(gS.children).forEach(el => {
+        if(el.getAttribute('stroke-width')==="2") gS.removeChild(el);
+    });
+    drawMarker(gS, 360-sunSid, 135, 170, "var(--gold)", "line");
+    drawMarker(gS, 360-moonSid, 135, 170, "var(--moon)", "line");
 
-    // B3. 数据卡片
-    const zhiIdx = Math.floor((h+1)/2) % 12;
-    document.getElementById('valShichen').innerText = `${ZHI[zhiIdx]}时`;
-
-    // 下一帧
+    // 数据更新
+    document.getElementById('valSunTrop').innerText = `${ZODIAC[Math.floor(sunLon/30)]} ${(sunLon%30).toFixed(1)}°`;
+    document.getElementById('valMoonTrop').innerText = `${ZODIAC[Math.floor(moonLon/30)]} ${(moonLon%30).toFixed(1)}°`;
+    
+    // 查找月宿
+    let moonXiu = "--";
+    let mSidNorm = (moonSid % 360 + 360) % 360;
+    for(let i=0; i<XIU.length; i++) {
+        let curr = XIU[i], next = XIU[(i+1)%XIU.length];
+        let s = curr.d, e = next.d;
+        if(e < s) e+=360;
+        let val = mSidNorm;
+        if(val < s && (s-val)>180) val+=360;
+        if(val >= s && val < e) {
+            moonXiu = `${curr.n}宿 ${(val-s).toFixed(1)}°`;
+            break;
+        }
+    }
+    document.getElementById('valMoonSid').innerText = moonXiu;
+    document.getElementById('valShichen').innerText = ZHI[Math.floor((tTime.getHours()+1)/2)%12] + "时";
+    
     requestAnimationFrame(update);
 }
 
-// 6. 启动逻辑
-const APP = {
-    init: () => {
-        initLayers();
-        
-        // GPS 模拟启动
-        if(navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(p => {
-                STATE.lat = p.coords.latitude;
-                STATE.lon = p.coords.longitude;
-                const el = document.getElementById('gpsInfo');
-                el.innerText = `GPS: 锁定 (${p.coords.accuracy.toFixed(0)}m)`;
-                el.className = "status-ok";
-            });
-        }
-        
-        // 启动心跳
-        requestAnimationFrame(update);
-    },
-    reset: () => {
-        alert("已复位到当前时间");
-    }
-};
-
-// 立即运行
-APP.init();
+// 6. 启动
+initUI();
+if(navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(p => {
+        STATE.lat = p.coords.latitude;
+        STATE.lon = p.coords.longitude;
+        document.getElementById('gpsState').innerText = "GPS: OK";
+        document.getElementById('gpsState').style.color = "#0f0";
+    });
+}
+update();
 
 </script>
 </body>

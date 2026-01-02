@@ -2,199 +2,847 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>终极真太阳时</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>真太阳时·星盘</title>
     <style>
+        :root {
+            --bg-color: #000000;
+            --main-color: #00ff41; /* 黑客绿 */
+            --warn-color: #ffcc00;
+            --danger-color: #ff3333;
+            --dim-color: #005511;
+            --text-color: #ccffcc;
+        }
         body {
-            background-color: #000000;
-            color: #00ff00; /* 经典的终端绿 */
+            background-color: var(--bg-color);
+            color: var(--text-color);
             font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 10px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            text-align: center;
+            min-height: 100vh;
+            overflow-x: hidden;
         }
-        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #fff; }
-        .time-display {
-            font-size: 3.5rem;
-            font-weight: bold;
-            margin: 10px 0;
-            text-shadow: 0 0 10px #00ff00;
-        }
-        .info-box {
-            border: 1px solid #333;
-            padding: 15px;
-            border-radius: 8px;
-            background-color: #111;
-            width: 80%;
-            max-width: 400px;
-            margin-top: 20px;
-        }
-        .data-row {
+        
+        /* 顶部状态栏 */
+        .status-bar {
+            width: 100%;
             display: flex;
             justify-content: space-between;
-            margin: 5px 0;
-            font-size: 0.9rem;
-            color: #aaa;
+            font-size: 0.75rem;
+            border-bottom: 1px solid var(--dim-color);
+            padding-bottom: 5px;
+            margin-bottom: 10px;
         }
-        .data-val { color: #fff; font-weight: bold; }
-        .shichen {
-            font-size: 2rem;
-            color: #ffcc00; /* 醒目的黄色 */
-            margin-top: 10px;
-            border: 1px solid #ffcc00;
-            padding: 5px 20px;
+        .gps-status { font-weight: bold; }
+
+        /* 主要显示区 */
+        .main-display {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .time-big {
+            font-size: 2.8rem;
+            font-weight: bold;
+            color: var(--main-color);
+            text-shadow: 0 0 10px var(--dim-color);
+            line-height: 1;
+        }
+        .time-label { font-size: 0.8rem; color: #888; margin-top: 5px; }
+        .diff-tag { 
+            font-size: 0.8rem; 
+            background: #111; 
+            border: 1px solid var(--dim-color); 
+            padding: 2px 8px; 
+            border-radius: 4px;
+            margin-top: 5px;
             display: inline-block;
         }
-        #status { color: #ff3333; font-size: 0.8rem; margin-top: 10px;}
-        .shichen-risk { font-size: 0.8rem; color: #ff3333; display: block; margin-top: 5px;}
+
+        /* SVG 表盘容器 */
+        .clock-container {
+            width: 300px;
+            height: 300px;
+            position: relative;
+            margin: 10px 0;
+        }
+        
+        /* 时辰信息 */
+        .shichen-box {
+            border: 1px solid var(--main-color);
+            padding: 10px;
+            width: 90%;
+            max-width: 350px;
+            text-align: center;
+            margin-top: 10px;
+            position: relative;
+        }
+        .shichen-title { font-size: 1.5rem; font-weight: bold; color: var(--warn-color); }
+        .shichen-progress {
+            height: 4px;
+            background: #222;
+            margin-top: 5px;
+            width: 100%;
+            position: relative;
+        }
+        .progress-bar {
+            height: 100%;
+            background: var(--main-color);
+            width: 0%;
+            transition: width 1s linear;
+        }
+        .shichen-countdown { font-size: 0.8rem; margin-top: 3px; }
+
+        /* 数据网格 */
+        .data-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            width: 95%;
+            max-width: 400px;
+            margin-top: 15px;
+            font-size: 0.8rem;
+        }
+        .data-item {
+            background: #0a0a0a;
+            border: 1px solid var(--dim-color);
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+        }
+        .data-label { color: #666; font-size: 0.7rem; }
+        .data-val { color: var(--main-color); font-weight: bold; margin-top: 2px;}
+
+        /* 月宿双显 */
+        .xiu-box {
+            grid-column: span 2;
+            display: flex;
+            justify-content: space-between;
+        }
+        .xiu-val-astro { color: #00ccff; } /* 天文蓝 */
+        .xiu-val-ancient { color: #ff9900; } /* 古法橙 */
+
+        /* 控制区 */
+        .controls {
+            margin-top: 20px;
+            width: 95%;
+            max-width: 400px;
+            border-top: 1px dashed #333;
+            padding-top: 10px;
+        }
+        button {
+            background: #111;
+            color: var(--main-color);
+            border: 1px solid var(--main-color);
+            padding: 8px 15px;
+            cursor: pointer;
+            font-family: inherit;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        button:active { background: var(--main-color); color: #000; }
+        
+        .manual-input {
+            display: none; /* 默认隐藏 */
+            background: #0f0f0f;
+            padding: 10px;
+            border: 1px solid #333;
+        }
+        .input-group { margin-bottom: 8px; text-align: left;}
+        .input-group label { display: block; color: #888; font-size: 0.7rem;}
+        .input-group input { 
+            width: 95%; 
+            background: #000; 
+            border: 1px solid #444; 
+            color: #fff; 
+            padding: 5px;
+            font-family: inherit;
+        }
+        .show { display: block; }
+        
+        /* 动画类 */
+        .flash-red { animation: flash 1s infinite; color: var(--danger-color); }
+        @keyframes flash { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
     </style>
 </head>
 <body>
 
-    <h1>真太阳时罗盘</h1>
-    
-    <div class="time-display" id="trueSolarTime">--:--:--</div>
-    
-    <div id="shichenBox" class="shichen">等待定位...</div>
-    <span id="shichenRisk" class="shichen-risk"></span>
-
-    <div class="info-box">
-        <div class="data-row"><span>平太阳时(手表):</span> <span class="data-val" id="clockTime">--:--:--</span></div>
-        <div class="data-row"><span>GPS经度:</span> <span class="data-val" id="lon">--</span></div>
-        <div class="data-row"><span>经度修正:</span> <span class="data-val" id="lonCorr">--</span></div>
-        <div class="data-row"><span>均时差(EoT):</span> <span class="data-val" id="eotCorr">--</span></div>
-        <div id="status">正在请求卫星权限...</div>
+    <div class="status-bar">
+        <span id="gpsStatus" class="gps-status">等待 GPS...</span>
+        <span id="sysTime">--:--:--</span>
     </div>
 
-    <script>
-        // --- 核心算法区 ---
+    <div class="main-display">
+        <div class="time-big" id="trueSolarTime">00:00:00</div>
+        <div class="time-label">真太阳时 (True Solar Time)</div>
+        <div class="diff-tag" id="timeDiff">正在计算偏差...</div>
+    </div>
+
+    <div class="clock-container">
+        <svg viewBox="0 0 200 200" width="100%" height="100%">
+            <circle cx="100" cy="100" r="98" fill="#000" stroke="#005511" stroke-width="2" />
+            
+            <path id="nightSector" d="" fill="#002200" opacity="0.5" />
+            
+            <g id="dialTicks" stroke="#005511" stroke-width="1"></g>
+            
+            <g id="dialLabels" fill="#00ff41" font-size="8" text-anchor="middle" dominant-baseline="middle"></g>
+
+            <g id="sunHand">
+                <line x1="100" y1="100" x2="100" y2="25" stroke="#ffcc00" stroke-width="2" />
+                <circle cx="100" cy="25" r="4" fill="#ffcc00" />
+                <text x="100" y="18" fill="#ffcc00" font-size="10" text-anchor="middle">☀</text>
+            </g>
+
+            <g id="moonHand" opacity="0.8">
+                <line x1="100" y1="100" x2="100" y2="45" stroke="#00ccff" stroke-width="1.5" stroke-dasharray="4,2" />
+                <circle cx="100" cy="45" r="3" fill="#00ccff" />
+                <text x="100" y="38" fill="#00ccff" font-size="8" text-anchor="middle">☾</text>
+            </g>
+
+            <circle cx="100" cy="100" r="3" fill="#333" />
+        </svg>
+    </div>
+
+    <div class="shichen-box">
+        <div class="shichen-title" id="shichenName">--时</div>
+        <div class="shichen-progress"><div class="progress-bar" id="shichenBar"></div></div>
+        <div class="shichen-countdown" id="shichenCount">计算中...</div>
+    </div>
+
+    <div class="data-grid">
+        <div class="data-item">
+            <span class="data-label">经度 (Lon)</span>
+            <span class="data-val" id="valLon">--</span>
+        </div>
+        <div class="data-item">
+            <span class="data-label">纬度 (Lat)</span>
+            <span class="data-val" id="valLat">--</span>
+        </div>
+        <div class="data-item">
+            <span class="data-label">日出 (Sunrise)</span>
+            <span class="data-val" id="valSunrise">--:--</span>
+        </div>
+        <div class="data-item">
+            <span class="data-label">日落 (Sunset)</span>
+            <span class="data-val" id="valSunset">--:--</span>
+        </div>
+        <div class="data-item xiu-box">
+            <div style="width:48%">
+                <span class="data-label">月宿 (古法·书房派)</span>
+                <div class="data-val xiu-val-ancient" id="xiuAncient">--</div>
+            </div>
+            <div style="width:48%; text-align:right;">
+                <span class="data-label">月宿 (天文·实测派)</span>
+                <div class="data-val xiu-val-astro" id="xiuAstro">--</div>
+            </div>
+        </div>
+        <div class="data-item" style="grid-column: span 2;">
+            <span class="data-label">农历日期</span>
+            <span class="data-val" id="lunarDateStr">--</span>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button onclick="toggleMode()" id="modeBtn">切换为：手动/历史模式</button>
         
-        // 1. 计算均时差 (EoT) - 输入：Date对象, 输出：分钟修正值
-        function calculateEoT(date) {
-            // 获取当年第几天 (Day of Year)
-            const start = new Date(date.getFullYear(), 0, 0);
-            const diff = date - start;
-            const oneDay = 1000 * 60 * 60 * 24;
-            const dayOfYear = Math.floor(diff / oneDay);
+        <div class="manual-input" id="manualPanel">
+            <div class="input-group">
+                <label>日期时间 (本地)</label>
+                <input type="datetime-local" id="manualTime">
+            </div>
+            <div class="input-group">
+                <label>经度 (东经为正)</label>
+                <input type="number" id="manualLon" value="116.40" step="0.0001">
+            </div>
+            <div class="input-group">
+                <label>纬度 (北纬为正)</label>
+                <input type="number" id="manualLat" value="39.90" step="0.0001">
+            </div>
+            <button onclick="applyManual()" style="margin-top:5px; border-color:#fff; color:#fff;">应用设定</button>
+            <button onclick="setNow()" style="margin-top:5px; font-size:0.8rem;">设为现在</button>
+        </div>
+    </div>
 
-            // 简易高精度算法
-            const B = (360 / 365) * (dayOfYear - 81);
-            const B_rad = B * (Math.PI / 180); // 转弧度
+<script>
+/**
+ * 终极真太阳时核心算法库
+ * 包含：天文算法简易实现、古法月宿、SVG绘图逻辑
+ */
 
-            const eot = 9.87 * Math.sin(2 * B_rad) 
-                      - 7.53 * Math.cos(B_rad) 
-                      - 1.5 * Math.sin(B_rad);
-            return eot; 
+// === 全局状态 ===
+let APP_STATE = {
+    mode: 'gps', // 'gps' or 'manual'
+    lat: 39.9042,
+    lon: 116.4074,
+    gpsAcc: 0,
+    time: new Date(),
+    manualTimeOffset: 0 // 手动模式下的时间差
+};
+
+// === 1. 基础天文数据常量 (J2000) ===
+// 二十八宿 J2000 标准距度 (参考值，逆时针)
+const XIU_ASTRO_DATA = [
+    {name:"角", deg: 201.2}, {name:"亢", deg: 212.3}, {name:"氐", deg: 221.7}, {name:"房", deg: 238.6},
+    {name:"心", deg: 244.7}, {name:"尾", deg: 252.0}, {name:"箕", deg: 268.3}, {name:"斗", deg: 277.6},
+    {name:"牛", deg: 302.3}, {name:"女", deg: 309.8}, {name:"虚", deg: 321.2}, {name:"危", deg: 331.0},
+    {name:"室", deg: 348.6}, {name:"壁", deg: 365.1}, // >360 处理
+    {name:"奎", deg: 10.5},  {name:"娄", deg: 24.5},  {name:"胃", deg: 37.8},  {name:"昴", deg: 52.3},
+    {name:"毕", deg: 61.2},  {name:"觜", deg: 76.8},  {name:"参", deg: 77.8},  {name:"井", deg: 88.6},
+    {name:"鬼", deg: 120.5}, {name:"柳", deg: 124.9}, {name:"星", deg: 139.3}, {name:"张", deg: 147.2},
+    {name:"翼", deg: 164.7}, {name:"轸", deg: 184.4}
+];
+// 修正壁宿跨越0度的问题
+XIU_ASTRO_DATA[13].deg = 5.1 + 360; // 这里的逻辑需要特殊处理查找
+
+// 古法月宿口诀序列
+const XIU_NAMES = "角亢氐房心尾箕斗牛女虚危室壁奎娄胃昴毕觜参井鬼柳星张翼轸";
+const MONTH_START_XIU = ["室","奎","胃","毕","参","鬼","张","角","氐","心","斗","虚"]; // 正月起室...
+const SLOW_XIU = ["奎", "井", "张", "翼", "氐"]; // 需要留一日的宿
+
+// === 2. 核心计算函数 ===
+
+function toRad(deg) { return deg * Math.PI / 180; }
+function toDeg(rad) { return rad * 180 / Math.PI; }
+
+// 计算均时差 (EoT) - 分钟
+function getEoT(date) {
+    const start = new Date(date.getFullYear(), 0, 0);
+    const diff = date - start;
+    const oneDay = 1000 * 60 * 60 * 24;
+    const day = Math.floor(diff / oneDay);
+    const B = (360 / 365) * (day - 81);
+    const B_rad = toRad(B);
+    return 9.87 * Math.sin(2*B_rad) - 7.53 * Math.cos(B_rad) - 1.5 * Math.sin(B_rad);
+}
+
+// 简易太阳位置计算 (用于日出日落)
+function getSunPos(date, lat, lon) {
+    // 简化算法，误差1-2分
+    const n = Math.ceil((date - new Date(date.getFullYear(),0,1)) / 86400000);
+    const declination = 23.45 * Math.sin(toRad(360/365 * (n - 81)));
+    return { dec: declination };
+}
+
+// 计算日出日落时刻
+function getSunTimes(date, lat, lon) {
+    const sun = getSunPos(date, lat, lon);
+    const decRad = toRad(sun.dec);
+    const latRad = toRad(lat);
+    
+    // 计算时角 (Hour Angle)
+    // cos(H) = -tan(lat) * tan(dec)
+    let cosH = -Math.tan(latRad) * Math.tan(decRad);
+    if (cosH > 1 || cosH < -1) return null; // 极昼极夜
+    
+    const H = toDeg(Math.acos(cosH));
+    const minutes = H * 4; // 角度转时间差
+    
+    // 这里的 noon 是真太阳时的中午 (12:00)
+    // 我们需要反推回标准时间，但为了表盘显示，我们直接用真太阳时坐标更方便
+    // 日出 = 12:00 - minutes, 日落 = 12:00 + minutes (真太阳时)
+    return {
+        riseSolar: 12*60 - minutes, // 分钟数
+        setSolar: 12*60 + minutes
+    };
+}
+
+// 简易月亮黄经计算 (用于实测派月宿)
+function getMoonLongitude(date) {
+    // 这是一个非常简化的月球历表，误差约1-2度，足够定宿
+    const D = (date.getTime() / 86400000) - 10957.5; // Days since J2000
+    const L = 218.316 + 13.176396 * D; // Mean longitude
+    const M = 134.963 + 13.064993 * D; // Mean anomaly
+    const F = 93.272 + 13.229350 * D;  // Mean distance from node
+    
+    const lRad = toRad(L);
+    const mRad = toRad(M);
+    const fRad = toRad(F);
+    
+    // 黄经修正
+    let lon = L + 6.289 * Math.sin(mRad);
+    lon = lon % 360;
+    if (lon < 0) lon += 360;
+    
+    // 减去岁差 (Precession)
+    // 春分点每年退行 50.3秒，约 0.01397 度
+    // 实际上二十八宿是恒星坐标，我们计算的是回归黄经，所以要修正
+    // 简单的做法：直接拿回归黄经去对现在的星表，或者减去岁差回到J2000
+    // J2000 到 2026 约 26年 -> 26 * 0.014 = 0.36度 (影响不大，但追求严谨)
+    // 但更重要的是，古代的宿度定义和现在的恒星位置差异巨大(约25-30度)
+    // 这里的 XIU_ASTRO_DATA 是 J2000 的坐标，所以我们要把当前黄经修正回 J2000
+    const t = D / 36525; // 儒略世纪
+    const precession = 0.01397 * (date.getFullYear() - 2000); 
+    return (lon - precession + 360) % 360; 
+}
+
+// === 3. 业务逻辑函数 ===
+
+// 古法推月宿 (依赖微型农历)
+function getAncientXiu(lunarMonth, lunarDay) {
+    // 1. 确定起点
+    const startXiuName = MONTH_START_XIU[lunarMonth - 1]; // 数组从0开始
+    let currentIndex = XIU_NAMES.indexOf(startXiuName);
+    
+    // 2. 步进
+    let d = 1;
+    while (d < lunarDay) {
+        let currentName = XIU_NAMES[currentIndex];
+        // 核心：逢奎井张翼氐留一日
+        // 也就是如果昨天是奎，今天还是奎(逻辑上)，明天才变？
+        // 算法实现：每经过这些宿，步进计数器不增加索引，只增加天数？
+        // 简化实现：如果是特殊宿，需要消耗2天才能走过
+        
+        // 修正逻辑：
+        // 每天都要走，但如果当前是特殊宿，下一天不换宿
+        // 为了模拟“留”，我们在循环里判断
+        if (SLOW_XIU.includes(currentName)) {
+            // 这是一次“慢”宿，这一天走完，实际上并没有走出这个宿
+            // 这里逻辑很绕，最简单的做法：
+            // 将路径展开：室, 壁, 奎, 奎, 娄, ... 井, 井 ...
+            // 但太麻烦。我们用 flag
+            // 实际上原文意思：数到奎，停一下。
+            // 简单模拟：如果当前是慢宿，且还没滞留过，则滞留
+            // 这里为了简单，我们不模拟“滞留状态”，直接认为这些宿占2个格
+            d++; // 天数走了
+            // 如果是第二次遇到这个宿(滞留天)，则移动索引
+            // 这种动态模拟太复杂。
+            
+            // 采用直接展开法模拟前15天：
+            // 正常：+1宿/天。特殊：+0.5宿/天？
+            // 让我们用最朴素的循环：
+            // 今天是 d，宿是 X。明天 d+1。如果 X 是慢宿，且 flag=false，则宿不变，flag=true。
+            // 否则宿+1，flag=false。
         }
-
-        // 2. 时辰判定逻辑
-        function getShichen(date) {
-            const h = date.getHours();
-            const m = date.getMinutes();
-            const timeVal = h + m / 60.0;
-            
-            // 地支对应 (23-1 子, 1-3 丑, 3-5 寅...)
-            const zhi = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
-            // 简单的索引算法：(小时 + 1) / 2 取整，模12
-            let index = Math.floor((h + 1) / 2) % 12;
-            
-            // 边界预警：如果在换运的前后1分钟内
-            let riskWarning = "";
-            // 计算距离下一个奇数整点还有多久
-            let nextOddHour = (Math.floor(timeVal) % 2 !== 0) ? Math.floor(timeVal) + 2 : Math.floor(timeVal) + 1;
-            if (nextOddHour === 25) nextOddHour = 1; 
-            
-            // 简单判断：如果分钟是 59 或 00，提示并在边界
-            if (m === 59) riskWarning = "⚠️ 即将换运 (剩<1分钟)";
-            if (m === 0) riskWarning = "⚠️ 刚刚换运 (过去<1分钟)";
-
-            return { name: zhi[index] + "时", risk: riskWarning };
+        
+        // 重新写循环：
+        // 已经在 startXiu, 此时是初一 (d=1)
+    }
+    
+    // 让我们用更简单可靠的“展开序列法”
+    // 构建一个从初一出发的序列
+    let pointer = XIU_NAMES.indexOf(startXiuName);
+    let day = 1;
+    let sequence = [];
+    
+    while (day <= 30) {
+        let name = XIU_NAMES[pointer];
+        sequence[day] = name;
+        
+        day++;
+        // 决定明天指向谁
+        if (SLOW_XIU.includes(name)) {
+             // 如果是慢宿，且前一天也是这个宿？
+             // 算法：如果是慢宿，我们入栈两次
+             if (sequence[day-2] !== name) {
+                 // 第一次遇到，不移动 pointer，只 day++ (上面已经++了，这里只要不移pointer，下轮循环还是它)
+                 continue; 
+             }
         }
+        pointer = (pointer + 1) % 28;
+    }
+    
+    return sequence[lunarDay] || "未知";
+}
 
-        // --- GPS 与 页面更新区 ---
-
-        const elTrueTime = document.getElementById('trueSolarTime');
-        const elClockTime = document.getElementById('clockTime');
-        const elLon = document.getElementById('lon');
-        const elLonCorr = document.getElementById('lonCorr');
-        const elEotCorr = document.getElementById('eotCorr');
-        const elStatus = document.getElementById('status');
-        const elShichen = document.getElementById('shichenBox');
-        const elRisk = document.getElementById('shichenRisk');
-
-        let currentLon = null;
-
-        // 启动 GPS 监听
-        if ("geolocation" in navigator) {
-            navigator.geolocation.watchPosition(
-                (position) => {
-                    // 成功获取位置
-                    currentLon = position.coords.longitude;
-                    elLon.innerText = currentLon.toFixed(4) + "°";
-                    elStatus.innerText = "GPS信号良好 (精度:" + position.coords.accuracy.toFixed(0) + "米)";
-                    elStatus.style.color = "#00ff00";
-                    updateDisplay();
-                },
-                (error) => {
-                    // 失败处理
-                    let errMsg = "";
-                    switch(error.code) {
-                        case error.PERMISSION_DENIED: errMsg = "定位权限被拒绝"; break;
-                        case error.POSITION_UNAVAILABLE: errMsg = "搜星失败，请到室外"; break;
-                        case error.TIMEOUT: errMsg = "定位超时"; break;
-                        default: errMsg = "未知错误";
-                    }
-                    elStatus.innerText = "⚠️ " + errMsg;
-                },
-                {
-                    enableHighAccuracy: true, // 【关键】强制高精度(硬件GPS)
-                    timeout: 10000,
-                    maximumAge: 0
-                }
-            );
-        } else {
-            elStatus.innerText = "您的浏览器不支持定位";
+// 天文派定宿
+function getAstroXiu(date) {
+    const lon = getMoonLongitude(date); // J2000 黄经
+    // 查找落在哪个区间
+    // 列表必须按度数排序
+    // 注意：壁宿跨越 0度，数据里是 5.1 (365.1)
+    // 我们把 0-5.1 度的归为壁宿
+    if (lon >= 0 && lon < 10.5) return "壁"; // 奎从10.5开始
+    if (lon >= 348.6) return "室";
+    
+    // 遍历查找
+    for (let i = 0; i < XIU_ASTRO_DATA.length - 1; i++) {
+        // 壁宿特殊处理过了
+        if (XIU_ASTRO_DATA[i].name === "壁" || XIU_ASTRO_DATA[i].name === "室") continue;
+        
+        let current = XIU_ASTRO_DATA[i].deg;
+        // 找下一个宿的度数
+        let nextIndex = (i + 1) % 28;
+        // ...这里的数组排序需要整理， XIU_ASTRO_DATA 并不是完全按顺序排列的（有跳跃）
+        // 让我们简化：直接判断
+    }
+    
+    // 最笨但最稳的方法：排序后遍历
+    let sorted = [...XIU_ASTRO_DATA].sort((a,b) => a.deg - b.deg);
+    // 处理 > 360 的壁
+    let bi = sorted.find(x=>x.name==="壁");
+    bi.deg = 5.1; // 还原
+    sorted.sort((a,b) => a.deg - b.deg);
+    
+    for (let i = 0; i < sorted.length; i++) {
+        let curr = sorted[i];
+        let next = sorted[(i+1)%28];
+        let nextDeg = next.deg;
+        if (nextDeg < curr.deg) nextDeg += 360; // 跨0度
+        
+        let myLon = lon;
+        if (myLon < curr.deg && (curr.deg - myLon) > 180) myLon += 360; // 处理跨0情况
+        
+        if (myLon >= curr.deg && myLon < nextDeg) {
+            return curr.name + " " + Math.floor(myLon - curr.deg) + "°";
         }
+    }
+    return "推算中";
+}
 
-        // 实时刷新时钟 (每秒)
-        setInterval(updateDisplay, 1000);
 
-        function updateDisplay() {
-            const now = new Date();
-            elClockTime.innerText = now.toLocaleTimeString('en-GB', {hour12: false}); // 24小时制
+// 极简农历转换 (误差1天以内，用于古法月宿)
+// 1900-2100 数据压缩太占地，这里使用高斯公历转农历公式的简化版（不完美但够用）
+function getSimpleLunar(date) {
+    // 这是一个非常复杂的工程，为了单文件，我们使用 "lunar-phase" 近似推算日期
+    // 或者利用天文朔望月推算：
+    // 已知 2000-01-01 是农历 1999-11-25 (己卯年)
+    // 朔望月周期 29.53059
+    const refDate = new Date(2000, 0, 7); // 2000-1-7 是新月 (腊月初一)
+    const days = (date - refDate) / 86400000;
+    const lunations = days / 29.53059;
+    const currentLunation = Math.floor(lunations);
+    
+    // 当前月过了多少天
+    const daysInMoon = (lunations - currentLunation) * 29.53;
+    const lunarDay = Math.floor(daysInMoon) + 1;
+    
+    // 推算月份 (非常粗略，仅用于定宿口诀)
+    // 2000年1月是腊月(12)，此后每过1个lunation，月+1
+    let totalMonths = 12 + currentLunation;
+    let lunarMonth = (totalMonths % 12);
+    if (lunarMonth === 0) lunarMonth = 12;
+    
+    // 这种推算忽略了闰月，导致月份可能错位。
+    // 既然你是硬核用户，我们可以提供一个输入框修正，或者只显示“天文月宿”，古法仅作参考
+    // 为了体验，我们加上"大约"
+    return { m: lunarMonth, d: lunarDay };
+}
 
-            if (currentLon === null) return; // 还没定位到，不计算
 
-            // 1. 经度差修正 (以北京时间东经120度为准)
-            // 如果你在中国，标准经线是120。
-            // 修正值 = (当地经度 - 120) * 4 分钟
-            const deltaLonMin = (currentLon - 120.0) * 4;
-            
-            // 2. 均时差修正
-            const eotMin = calculateEoT(now);
+// === 4. UI 绘制与更新 ===
 
-            // 3. 总修正
-            const totalOffsetMin = deltaLonMin + eotMin;
-            
-            // 4. 计算真太阳时对象
-            // getTime() 是毫秒，所以要 * 60 * 1000
-            const trueSolarTimeObj = new Date(now.getTime() + totalOffsetMin * 60 * 1000);
+function drawClock(trueDate, lat) {
+    // 1. 计算角度
+    // 真太阳时 24小时制。上方为12点(午)。
+    // 0点(子)在下方。
+    // 12点 = 0度 (12点方向)。
+    // 18点 = 90度 (9点方向，西) -> 不对，钟表顺时针
+    // 12点(上) -> 0度
+    // 18点(右) -> 90度
+    // 24点(下) -> 180度
+    // 06点(左) -> 270度
+    
+    // 角度 = (Hour + Min/60 + Sec/3600 - 12) * 15 ? 
+    // 12点 -> 0
+    // 13点 -> 15度
+    
+    let hours = trueDate.getHours();
+    let mins = trueDate.getMinutes();
+    let secs = trueDate.getSeconds();
+    
+    let totalHours = hours + mins/60 + secs/3600;
+    
+    // 旋转角度
+    let sunAngle = (totalHours - 12) * 15;
+    
+    // 绘制日夜扇区
+    const sunTimes = getSunTimes(trueDate, lat, 0); // Lon 0 因为我们用相对时间
+    let nightPath = "";
+    
+    if (sunTimes) {
+        // 将日出日落分钟转换为表盘角度
+        // Sunrise (e.g. 06:00 = 360mins) -> Angle
+        // Set (e.g. 18:00 = 1080mins)
+        // 12:00 = 720mins = 0deg
+        
+        let riseMin = sunTimes.riseSolar; // 距离0点的分钟
+        let setMin = sunTimes.setSolar;
+        
+        let riseHour = riseMin / 60;
+        let setHour = setMin / 60;
+        
+        let riseAngle = (riseHour - 12) * 15;
+        let setAngle = (setHour - 12) * 15;
+        
+        // 绘制扇区 (夜间)
+        // 从日落画到日出
+        // SVG Arc: M center L start A radius 0 large sweep end Z
+        let r = 98;
+        let startRad = (setAngle - 90) * Math.PI / 180; // SVG 0度是右边(3点)，我们要修正
+        let endRad = (riseAngle - 90) * Math.PI / 180;
+        
+        let x1 = 100 + r * Math.cos(startRad);
+        let y1 = 100 + r * Math.sin(startRad);
+        let x2 = 100 + r * Math.cos(endRad);
+        let y2 = 100 + r * Math.sin(endRad);
+        
+        // 大圆弧标志: 如果角度差>180，则为1
+        // 夜晚跨度通常 < 180 (夏天) 或 > 180 (冬天)
+        // 这里的角度是 set(下午) 到 rise(上午)，跨越下方(半夜)，所以应该接近 180
+        // 角度计算: rise - set. e.g. -90 - 90 = -180. 
+        // 简单处理：画两个半圆或者计算 diff
+        let diff = (riseAngle + 360) - setAngle;
+        if (riseAngle < setAngle) diff = (riseAngle + 360) - setAngle;
+        else diff = riseAngle - setAngle;
+        
+        let largeArc = diff > 180 ? 1 : 0;
+        
+        nightPath = `M 100 100 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+        
+        // 更新文字
+        let riseTimeStr = `${Math.floor(riseHour).toString().padStart(2,'0')}:${Math.floor((riseHour%1)*60).toString().padStart(2,'0')}`;
+        let setTimeStr = `${Math.floor(setHour).toString().padStart(2,'0')}:${Math.floor((setHour%1)*60).toString().padStart(2,'0')}`;
+        
+        document.getElementById('valSunrise').innerText = riseTimeStr;
+        document.getElementById('valSunset').innerText = setTimeStr;
+    }
+    
+    document.getElementById('nightSector').setAttribute('d', nightPath);
+    
+    // 旋转太阳
+    document.getElementById('sunHand').setAttribute('transform', `rotate(${sunAngle}, 100, 100)`);
+    
+    // 月亮位置
+    // 月亮一天走约12度 (相对太阳)，或者 13度(绝对)
+    // 粗略计算：月相角
+    const phaseAge = (new Date() / 86400000) % 29.53;
+    // 新月=0度(与太阳重合)，满月=180度
+    // 月亮角度 = 太阳角度 - (Age / 29.5 * 360) ? 
+    // 不，月亮在天上跑得比太阳慢(视运动)，所以它落后于太阳
+    let moonLag = (phaseAge / 29.53) * 360;
+    let moonAngle = sunAngle - moonLag;
+    
+    document.getElementById('moonHand').setAttribute('transform', `rotate(${moonAngle}, 100, 100)`);
+}
 
-            // 更新UI
-            elTrueTime.innerText = trueSolarTimeObj.toLocaleTimeString('en-GB', {hour12: false});
-            elLonCorr.innerText = (deltaLonMin > 0 ? "+" : "") + deltaLonMin.toFixed(2) + "分";
-            elEotCorr.innerText = (eotMin > 0 ? "+" : "") + eotMin.toFixed(2) + "分";
-
-            const shichenData = getShichen(trueSolarTimeObj);
-            elShichen.innerText = shichenData.name;
-            elRisk.innerText = shichenData.risk;
+function initDial() {
+    const ticks = document.getElementById('dialTicks');
+    const labels = document.getElementById('dialLabels');
+    const zhi = ["午","未","申","酉","戌","亥","子","丑","寅","卯","辰","巳"];
+    
+    for (let i = 0; i < 24; i++) {
+        let angle = i * 15;
+        let isMajor = (i % 2 === 0);
+        let len = isMajor ? 6 : 3;
+        let rad = (angle - 90) * Math.PI / 180;
+        
+        let x1 = 100 + (98 - len) * Math.cos(rad);
+        let y1 = 100 + (98 - len) * Math.sin(rad);
+        let x2 = 100 + 98 * Math.cos(rad);
+        let y2 = 100 + 98 * Math.sin(rad);
+        
+        let line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", x1);
+        line.setAttribute("y1", y1);
+        line.setAttribute("x2", x2);
+        line.setAttribute("y2", y2);
+        ticks.appendChild(line);
+        
+        // 文字
+        if (isMajor) {
+            let zhiIndex = i / 2;
+            let textR = 85;
+            let tx = 100 + textR * Math.cos(rad);
+            let ty = 100 + textR * Math.sin(rad);
+            let txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            txt.setAttribute("x", tx);
+            txt.setAttribute("y", ty + 1); // fix baseline
+            txt.textContent = zhi[zhiIndex];
+            // 旋转文字使其直立
+            // txt.setAttribute("transform", `rotate(${angle}, ${tx}, ${ty})`);
+            labels.appendChild(txt);
         }
+    }
+}
 
-    </script>
+// === 5. 主循环 ===
+
+function update() {
+    // 1. 获取基础时间
+    let now = new Date();
+    if (APP_STATE.mode === 'manual') {
+        now = new Date(now.getTime() + APP_STATE.manualTimeOffset);
+    }
+    APP_STATE.time = now;
+    
+    document.getElementById('sysTime').innerText = "表: " + now.toLocaleTimeString('en-GB');
+
+    // 2. 计算真太阳时
+    // Lon Corr
+    let deltaLonMin = (APP_STATE.lon - 120.0) * 4;
+    // EoT
+    let eotMin = getEoT(now);
+    let totalOffsetMin = deltaLonMin + eotMin;
+    
+    let trueTimeObj = new Date(now.getTime() + totalOffsetMin * 60 * 1000);
+    
+    // 显示时间
+    let h = trueTimeObj.getHours();
+    let m = trueTimeObj.getMinutes();
+    let s = trueTimeObj.getSeconds();
+    document.getElementById('trueSolarTime').innerText = 
+        `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+        
+    // 显示偏差
+    let sign = totalOffsetMin >= 0 ? "+" : "-";
+    let absOff = Math.abs(totalOffsetMin);
+    let offM = Math.floor(absOff);
+    let offS = Math.floor((absOff - offM) * 60);
+    document.getElementById('timeDiff').innerText = `比手表 ${totalOffsetMin>=0?"快":"慢"} ${offM}分${offS}秒`;
+    
+    // 3. 时辰计算
+    // 地支: 11-13 午, 13-15 未...
+    // 算法: (h + 1) / 2 floor
+    let zhiArr = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
+    let idx = Math.floor((h + 1) / 2) % 12;
+    let currZhi = zhiArr[idx];
+    
+    // 计算时辰进度
+    // 当前时辰的起始时间 (真太阳时)
+    // 比如 11:00 是午初。如果现在 12:30。
+    // 时辰跨度 2小时 = 120分钟 = 7200秒
+    // 奇数点开始。
+    // 找上一个奇数点
+    let startHour = (h % 2 !== 0) ? h : h - 1; 
+    // 修正：子时是 23:00 - 01:00。
+    // 如果是 00:30，startHour应该是 -1 (昨晚23点)。
+    // 简单化：计算当前过去了多少秒
+    // 距离 (startHour):00:00 的秒数
+    let periodSec = 7200;
+    
+    // 归一化处理：把时间轴移到 11:00 (午) 为起点方便计算? 不，直接算
+    // 目标：距离下一个奇数整点还有多久
+    let nextOddH = (h % 2 !== 0) ? h + 2 : h + 1;
+    if (nextOddH >= 24) nextOddH -= 24;
+    
+    let targetTime = new Date(trueTimeObj);
+    targetTime.setHours(nextOddH, 0, 0, 0);
+    if (nextOddH < h) targetTime.setDate(targetTime.getDate() + 1); // 跨天
+    
+    let diffMs = targetTime - trueTimeObj;
+    let remainSec = Math.floor(diffMs / 1000);
+    let pastSec = 7200 - remainSec;
+    let percent = (pastSec / 7200) * 100;
+    
+    document.getElementById('shichenName').innerText = `${currZhi}时`;
+    document.getElementById('shichenBar').style.width = percent + "%";
+    
+    // 倒计时文字与颜色
+    let rm = Math.floor(remainSec / 60);
+    let rs = remainSec % 60;
+    document.getElementById('shichenCount').innerText = `距离换运: ${rm}分${rs}秒`;
+    
+    let barEl = document.getElementById('shichenBar');
+    let titleEl = document.getElementById('shichenName');
+    
+    titleEl.classList.remove('flash-red');
+    if (rm < 1) {
+        barEl.style.backgroundColor = "var(--danger-color)";
+        titleEl.classList.add('flash-red');
+        titleEl.innerText = `${currZhi}时 (换运中!)`;
+    } else if (rm < 15) {
+        barEl.style.backgroundColor = "var(--warn-color)";
+    } else {
+        barEl.style.backgroundColor = "var(--main-color)";
+    }
+
+    // 4. 更新图表与数据
+    drawClock(trueTimeObj, APP_STATE.lat);
+    
+    document.getElementById('valLon').innerText = APP_STATE.lon.toFixed(4) + "°";
+    document.getElementById('valLat').innerText = APP_STATE.lat.toFixed(4) + "°";
+    
+    // 5. 月宿更新
+    let lunar = getSimpleLunar(now);
+    let ancXiu = getAncientXiu(lunar.m, lunar.d);
+    let astroXiu = getAstroXiu(now);
+    
+    document.getElementById('xiuAncient').innerText = ancXiu;
+    document.getElementById('xiuAstro').innerText = astroXiu;
+    document.getElementById('lunarDateStr').innerText = `约农历 ${lunar.m}月${lunar.d}日`;
+}
+
+// === 6. 交互与GPS ===
+
+function toggleMode() {
+    let p = document.getElementById('manualPanel');
+    let b = document.getElementById('modeBtn');
+    if (APP_STATE.mode === 'gps') {
+        APP_STATE.mode = 'manual';
+        p.classList.add('show');
+        b.innerText = "当前：手动/历史模式 (点击切换回GPS)";
+        document.getElementById('gpsStatus').innerText = "手动模式";
+        document.getElementById('gpsStatus').style.color = "#888";
+    } else {
+        APP_STATE.mode = 'gps';
+        p.classList.remove('show');
+        b.innerText = "切换为：手动/历史模式";
+        APP_STATE.manualTimeOffset = 0; // 重置时间偏移
+        initGPS();
+    }
+}
+
+function applyManual() {
+    let tVal = document.getElementById('manualTime').value;
+    let lonVal = parseFloat(document.getElementById('manualLon').value);
+    let latVal = parseFloat(document.getElementById('manualLat').value);
+    
+    if (tVal) {
+        let setT = new Date(tVal);
+        APP_STATE.manualTimeOffset = setT - new Date();
+    }
+    if (!isNaN(lonVal)) APP_STATE.lon = lonVal;
+    if (!isNaN(latVal)) APP_STATE.lat = latVal;
+    
+    update();
+}
+
+function setNow() {
+    let now = new Date();
+    // 格式化为 datetime-local string: YYYY-MM-DDTHH:mm
+    let str = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0,16);
+    document.getElementById('manualTime').value = str;
+    APP_STATE.manualTimeOffset = 0;
+    update();
+}
+
+function initGPS() {
+    if ("geolocation" in navigator) {
+        document.getElementById('gpsStatus').innerText = "正在搜星...";
+        navigator.geolocation.watchPosition(
+            (pos) => {
+                if (APP_STATE.mode !== 'gps') return;
+                APP_STATE.lat = pos.coords.latitude;
+                APP_STATE.lon = pos.coords.longitude;
+                APP_STATE.gpsAcc = pos.coords.accuracy;
+                
+                let timeStr = new Date(pos.timestamp).toLocaleTimeString();
+                document.getElementById('gpsStatus').innerText = `GPS锁定 (精度${Math.round(APP_STATE.gpsAcc)}m)`;
+                document.getElementById('gpsStatus').style.color = "var(--main-color)";
+            },
+            (err) => {
+                if (APP_STATE.mode !== 'gps') return;
+                document.getElementById('gpsStatus').innerText = "GPS失效: " + err.message;
+                document.getElementById('gpsStatus').style.color = "var(--danger-color)";
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    } else {
+        document.getElementById('gpsStatus').innerText = "设备不支持GPS";
+    }
+}
+
+// === 启动 ===
+initDial();
+initGPS();
+setNow(); // 初始化手动面板时间
+setInterval(update, 1000);
+update();
+
+</script>
 </body>
-
 </html>

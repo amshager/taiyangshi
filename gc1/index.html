@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>勾陈·天极 | HUD</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
+</head>
+<body>
+
+    <div class="cosmos-stage">
+        <div class="orbit-outer-container">
+            <div class="orbit-line orbit-outer-line"></div>
+            <div class="planet planet-outer"></div>
+        </div>
+        <div class="orbit-inner-container">
+            <div class="orbit-line orbit-inner-line"></div>
+            <div class="planet planet-inner"></div>
+        </div>
+        
+        <div class="polaris-wrapper" onclick="window.openSettings()" title="点击校准">
+            <div class="the-star"></div>
+            <div class="star-label">勾陈一</div>
+        </div>
+    </div>
+
+    <div class="wing-panel wing-left">
+        <div class="data-group">
+            <div class="label">LOCATION / 地利</div>
+            <div class="value val-cyan">
+                <span id="lonDisplay">---.--</span><span class="unit">°E</span>
+                <span id="gpsTag" class="gps-tag">GPS</span>
+                <span id="gpsAccText" class="gps-acc-text"></span>
+            </div>
+            <div class="value val-cyan" style="font-size:14px; opacity:0.7;">
+                <span id="latDisplay">---.--</span><span class="unit">°N</span>
+            </div>
+        </div>
+        
+        <div class="data-group">
+             <div class="label">STD TIME / 法定</div>
+             <div class="value" style="color:#ccc" id="stdTime">--:--:--</div>
+        </div>
+    </div>
+
+    <div class="wing-panel wing-right">
+        <div class="data-group">
+            <div class="label">EQ. TIME / 均差</div>
+            <div class="value" id="eotDisplay">--:--</div>
+        </div>
+        
+        <div class="data-group">
+            <div class="label">LON OFFSET / 经补</div>
+            <div class="value" id="offsetDisplay">--:--</div>
+        </div>
+    </div>
+
+    <div class="bottom-deck">
+        <div class="main-time" id="mainTime">00:00:00</div>
+        <div class="solar-term-bar">
+            <div class="term-node prev">
+                <span class="t-label">PREVIOUS</span>
+                <span class="t-name" id="prevName">--</span>
+                <span class="t-time" id="prevTime">--:--</span>
+            </div>
+            <div class="term-node curr">
+                <span class="t-label">CURRENT</span>
+                <span class="t-name" id="currName">--</span>
+                <span class="t-time" style="font-size:12px; color:var(--gold-dust)">IN PROGRESS</span>
+            </div>
+            <div class="term-node next">
+                <span class="t-label">NEXT</span>
+                <span class="t-name" id="nextName">--</span>
+                <span class="t-time" id="nextTime">--:--</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="settingsModal">
+        <div class="panel">
+            <h2>天机校准</h2>
+            <div class="input-row">
+                <label>LONGITUDE (经度)</label>
+                <input type="number" id="inpLon" step="0.01">
+            </div>
+            <div class="input-row">
+                <label>LATITUDE (纬度)</label>
+                <input type="number" id="inpLat" step="0.01">
+            </div>
+            <div class="msg" id="statusMsg"></div>
+            <div class="btn-row">
+                <button class="btn btn-gps" onclick="window.getGPS()">📡 自动定位</button>
+                <button class="btn" onclick="window.saveAndClose()">定 盘</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="logic.js"></script>
+
+</body>
+</html>

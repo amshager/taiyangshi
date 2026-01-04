@@ -155,4 +155,67 @@ body {
 @keyframes rotate-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes rotate-rev { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
 /* 【修复】闪烁动画 */
+
 @keyframes twinkle { 0%,100% { opacity: 0.8; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); box-shadow: 0 0 20px 5px var(--star-core), 0 0 70px 25px var(--star-halo); } }
+/* --- 移动端适配阵法 (针对宽度小于 768px 的屏幕) --- */
+@media (max-width: 768px) {
+    /* 1. 缩小天象盘，位置微调 */
+    .cosmos-stage {
+        top: 25%; /* 向上挪一点，给下面留位置 */
+        width: 75vmin; 
+        height: 75vmin;
+    }
+
+    /* 2. 重构左右两翼数据：由“左右环绕”改为“横向排布” */
+    .wing-panel {
+        top: auto;
+        bottom: 38vh; /* 放在圆环下方，主时间上方 */
+        width: 100%;
+        transform: none;
+        flex-direction: row; /* 横向排列 */
+        justify-content: space-around;
+        padding: 0 10px;
+        border: none;
+        gap: 10px;
+    }
+    
+    .wing-left, .wing-right {
+        position: static;
+        width: 45%;
+        border: none;
+        padding: 0;
+        text-align: center; /* 手机端居中更有平衡感 */
+    }
+
+    /* 3. 缩小主时间字体，防止撑破屏幕 */
+    .main-time {
+        font-size: 48px;
+        margin-bottom: 15px;
+    }
+
+    /* 4. 优化底部节气栏 */
+    .bottom-deck {
+        width: 95%;
+        bottom: 2vh;
+    }
+
+    .solar-term-bar {
+        gap: 5px;
+    }
+
+    .t-name { font-size: 14px; } /* 缩小节气名 */
+    .t-time { font-size: 11px; } /* 缩小时间 */
+
+    /* 5. 设置面板在手机上的宽度 */
+    .panel {
+        width: 85%;
+        padding: 20px;
+    }
+}
+
+/* 针对超短手机的额外优化 */
+@media (max-height: 667px) {
+    .star-label { display: none; } /* 屏幕太矮时隐藏“勾陈一”文字，只留星星 */
+    .cosmos-stage { top: 20%; }
+    .main-time { font-size: 36px; }
+}

@@ -423,7 +423,7 @@
                 <!-- needle rotates -->
                 <g id="mcNeedle" transform="rotate(0)">
                   <path d="M0,-36 L6,-18 L0,-22 L-6,-18 Z" fill="rgba(255,118,118,.72)"/>
-                  <path d="M0,36 L6,18 L0,22 L-6,18 Z" fill="rgba(107,241,255,.55)"/>
+      
                   <circle r="3.8" fill="rgba(0,0,0,.18)" stroke="rgba(236,236,236,.22)" stroke-width="1"/>
                 </g>
               </svg>
@@ -571,13 +571,20 @@ function applyHeading(deg){
   deg = normalizeDeg(deg);
   state.compass.raw = deg;
   if(state.compass.smooth==null) state.compass.smooth = deg;
-  state.compass.smooth = lerpAngle(state.compass.smooth, deg, 0.18);
+  // 根据刷新间隔自适应滤波：越抖越稳，响应也不会慢得离谱
+const now = performance.now();
+  const dt = state.compass._t ? (now - state.compass._t) : 16;
+  state.compass._t = now;
+
+  // 0.06~0.18 之间：更稳（小） vs 更灵（大）
+  const t = Math.max(0.06, Math.min(0.18, dt / 250)); 
+  state.compass.smooth = lerpAngle(state.compass.smooth, deg, t);
 
   const needle = $("mcNeedle");
   // rotate needle by -heading (needle points north in world)
   needle.setAttribute("transform", `rotate(${-state.compass.smooth})`);
 
-  $("mc_deg").textContent = `${state.compass.smooth.toFixed(0)}°`;
+  $("mc_deg").textContent = `${state.compass.smooth.toFixed(1)}°`;
   $("mc_24").textContent = degTo24(state.compass.smooth);
 }
 

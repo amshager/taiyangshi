@@ -414,6 +414,27 @@
             <!-- mini compass indicator -->
             <div class="miniCompass" id="miniCompass" title="点我启用/校验罗盘">
               <svg viewBox="-50 -50 100 100" aria-label="mini compass">
+  <!-- 盘面：会转 -->
+  <g id="mcDial" transform="rotate(0)">
+    <circle r="44" fill="rgba(0,0,0,.08)" stroke="rgba(236,236,236,.16)" stroke-width="1"/>
+    <circle r="34" fill="rgba(203,170,96,.08)" stroke="rgba(203,170,96,.18)" stroke-width="1"/>
+
+    <!-- N 标记（在盘面上，跟着盘面一起转） -->
+    <text x="0" y="-30" text-anchor="middle" font-size="9"
+          fill="rgba(236,236,236,.62)" font-family="ui-monospace, Menlo, monospace">N</text>
+
+    <!-- 24 等分分隔线（在盘面上，跟着盘面一起转） -->
+    <g id="mcSep"></g>
+  </g>
+
+  <!-- 指针：固定不动（永远在上方，代表“手机正前方”） -->
+  <g id="mcNeedle">
+    <!-- 一个简单的上方三角指示 -->
+    <path d="M0,-42 L6,-30 L0,-33 L-6,-30 Z" fill="rgba(255,118,118,.82)"/>
+    <circle r="3.8" fill="rgba(0,0,0,.18)" stroke="rgba(236,236,236,.22)" stroke-width="1"/>
+  </g>
+</svg>
+
                 <circle r="44" fill="rgba(0,0,0,.08)" stroke="rgba(236,236,236,.16)" stroke-width="1"/>
                 <circle r="34" fill="rgba(203,170,96,.08)" stroke="rgba(203,170,96,.18)" stroke-width="1"/>
                 <!-- N label -->
@@ -569,23 +590,18 @@ function buildMiniSep(){
 
 function applyHeading(deg){
   deg = normalizeDeg(deg);
+
+  // 不做任何“平滑/滤波”，先保证逻辑正常
   state.compass.raw = deg;
-  if(state.compass.smooth==null) state.compass.smooth = deg;
-  // 根据刷新间隔自适应滤波：越抖越稳，响应也不会慢得离谱
-const now = performance.now();
-  const dt = state.compass._t ? (now - state.compass._t) : 16;
-  state.compass._t = now;
+  state.compass.smooth = deg;
 
-  // 0.06~0.18 之间：更稳（小） vs 更灵（大）
-  const t = Math.max(0.06, Math.min(0.18, dt / 250)); 
-  state.compass.smooth = lerpAngle(state.compass.smooth, deg, t);
+  // 关键：转盘面，不转指针
+  const dial = $("mcDial");
+  if (dial) dial.setAttribute("transform", `rotate(${-deg})`);
 
-  const needle = $("mcNeedle");
-  // rotate needle by -heading (needle points north in world)
-  needle.setAttribute("transform", `rotate(${-state.compass.smooth})`);
-
-  $("mc_deg").textContent = `${state.compass.smooth.toFixed(1)}°`;
-  $("mc_24").textContent = degTo24(state.compass.smooth);
+  // 显示度数 + 24山
+  $("mc_deg").textContent = `${deg.toFixed(0)}°`;
+  $("mc_24").textContent = degTo24(deg);
 }
 
 /* ===================== DeviceOrientation on Android/iOS ===================== */

@@ -1,278 +1,135 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CODEX1 | 真太阳时计算器</title>
-  <style>
-    :root {
-      color-scheme: dark;
-      --bg: #0b0d10;
-      --panel: #11151b;
-      --border: #242a33;
-      --text: #e6e9ef;
-      --muted: #8a94a6;
-      --accent: #4cc9f0;
-      --accent-2: #f7b801;
-    }
-
-    * {
-      box-sizing: border-box;
-      font-family: "Inter", "PingFang SC", "Noto Sans SC", sans-serif;
-    }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      background: radial-gradient(circle at top, #18202a, var(--bg));
-      color: var(--text);
-      padding: 32px 20px 60px;
-    }
-
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-      display: grid;
-      gap: 20px;
-    }
-
-    header {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    header h1 {
-      font-size: 26px;
-      margin: 0;
-    }
-
-    header p {
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.5;
-    }
-
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 24px;
-      display: grid;
-      gap: 16px;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 16px;
-    }
-
-    label {
-      display: block;
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-
-    input {
-      width: 100%;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: #0b0f14;
-      color: var(--text);
-      padding: 10px 12px;
-      font-size: 14px;
-    }
-
-    .btn-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-
-    button {
-      border: none;
-      border-radius: 999px;
-      padding: 10px 18px;
-      font-size: 14px;
-      cursor: pointer;
-      background: var(--accent);
-      color: #0b0d10;
-      font-weight: 600;
-    }
-
-    .btn-secondary {
-      background: #1f2630;
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
-
-    .result {
-      display: grid;
-      gap: 8px;
-    }
-
-    .result .time {
-      font-size: 40px;
-      font-weight: 600;
-      color: var(--accent-2);
-      letter-spacing: 1px;
-    }
-
-    .result .meta {
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.6;
-    }
-
-    .status {
-      font-size: 13px;
-      color: #f25f5c;
-    }
-
-    footer {
-      color: var(--muted);
-      font-size: 12px;
-      text-align: center;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <header>
-      <h1>CODEX1 · 真太阳时计算器</h1>
-      <p>选择北京时的日期与时间，输入经纬度，即可计算对应的真太阳时（秒级显示）。</p>
-    </header>
-
-    <section class="panel">
-      <div class="grid">
-        <div>
-          <label for="dateInput">日期（北京时）</label>
-          <input type="date" id="dateInput" />
-        </div>
-        <div>
-          <label for="timeInput">时间（北京时）</label>
-          <input type="time" id="timeInput" step="1" />
-        </div>
-        <div>
-          <label for="lonInput">经度 (°E)</label>
-          <input type="number" id="lonInput" step="0.0001" />
-        </div>
-        <div>
-          <label for="latInput">纬度 (°N)</label>
-          <input type="number" id="latInput" step="0.0001" />
-        </div>
-      </div>
-      <div class="btn-row">
-        <button type="button" id="applyBtn">计算真太阳时</button>
-        <button type="button" class="btn-secondary" id="nowBtn">使用当前北京时</button>
-      </div>
-      <div class="status" id="status"></div>
-    </section>
-
-    <section class="panel">
-      <div class="result">
-        <div class="time" id="trueTime">--:--:--</div>
-        <div class="meta" id="metaInfo">等待输入。</div>
-      </div>
-    </section>
-
-    <footer>
-      公式：真太阳时 = 北京时 + 均时差(EOT) + 4 × (经度 - 120°) 分钟。
-    </footer>
-  </div>
-
-  <script src="./lib/astronomy.browser.min.js"></script>
-  <script>
-    const BEIJING_TZ = 8;
-    const DEFAULT_LON = 116.4074;
-    const DEFAULT_LAT = 39.9042;
-
-    const dateInput = document.getElementById("dateInput");
-    const timeInput = document.getElementById("timeInput");
-    const lonInput = document.getElementById("lonInput");
-    const latInput = document.getElementById("latInput");
-    const statusEl = document.getElementById("status");
-    const trueTimeEl = document.getElementById("trueTime");
-    const metaInfoEl = document.getElementById("metaInfo");
-
-    function formatTwo(n) {
-      return String(n).padStart(2, "0");
-    }
-
-    function formatBeijingDate(date) {
-      const utcMs = date.getTime() + date.getTimezoneOffset() * 60000;
-      const bj = new Date(utcMs + BEIJING_TZ * 3600000);
-      const y = bj.getUTCFullYear();
-      const m = formatTwo(bj.getUTCMonth() + 1);
-      const d = formatTwo(bj.getUTCDate());
-      return `${y}-${m}-${d}`;
-    }
-
-    function formatBeijingTime(date) {
-      const utcMs = date.getTime() + date.getTimezoneOffset() * 60000;
-      const bj = new Date(utcMs + BEIJING_TZ * 3600000);
-      const hh = formatTwo(bj.getUTCHours());
-      const mm = formatTwo(bj.getUTCMinutes());
-      const ss = formatTwo(bj.getUTCSeconds());
-      return `${hh}:${mm}:${ss}`;
-    }
-
-    function buildUtcFromBeijing(dateStr, timeStr) {
-      const [y, m, d] = dateStr.split("-").map(Number);
-      const [hh, mm, ss] = timeStr.split(":").map(Number);
-      return new Date(Date.UTC(y, m - 1, d, hh - BEIJING_TZ, mm, ss || 0));
-    }
-
-    function formatClockFromUtc(utcMs) {
-      const bj = new Date(utcMs + BEIJING_TZ * 3600000);
-      const hh = formatTwo(bj.getUTCHours());
-      const mm = formatTwo(bj.getUTCMinutes());
-      const ss = formatTwo(bj.getUTCSeconds());
-      return `${hh}:${mm}:${ss}`;
-    }
-
-    function update() {
-      statusEl.textContent = "";
-
-      if (typeof Astronomy === "undefined" || typeof Astronomy.EquationOfTime !== "function") {
-        statusEl.textContent = "Astronomy 引擎未加载，请确保 ./lib/astronomy.browser.min.js 可用。";
-        return;
-      }
-
-      const dateStr = dateInput.value;
-      const timeStr = timeInput.value;
-      const lon = parseFloat(lonInput.value);
-      const lat = parseFloat(latInput.value);
-
-      if (!dateStr || !timeStr || Number.isNaN(lon) || Number.isNaN(lat)) {
-        statusEl.textContent = "请完整填写日期、时间与经纬度。";
-        return;
-      }
-
-      const utcDate = buildUtcFromBeijing(dateStr, timeStr);
-      const eotMin = Astronomy.EquationOfTime(utcDate);
-      const lonCorrectionMin = (lon - 120) * 4;
-      const trueSolarMs = utcDate.getTime() + (eotMin + lonCorrectionMin) * 60000;
-
-      trueTimeEl.textContent = formatClockFromUtc(trueSolarMs);
-      metaInfoEl.textContent = `北京时: ${dateStr} ${timeStr} | EOT: ${eotMin.toFixed(2)} min | 经度修正: ${lonCorrectionMin.toFixed(2)} min | 坐标: ${lat.toFixed(4)}N, ${lon.toFixed(4)}E`;
-    }
-
-    function setDefaultNow() {
-      const now = new Date();
-      dateInput.value = formatBeijingDate(now);
-      timeInput.value = formatBeijingTime(now);
-      lonInput.value = DEFAULT_LON;
-      latInput.value = DEFAULT_LAT;
-      update();
-    }
-
-    document.getElementById("applyBtn").addEventListener("click", update);
-    document.getElementById("nowBtn").addEventListener("click", setDefaultNow);
-
-    setDefaultNow();
-  </script>
-</body>
-</html>
+diff --git a/CODEX1/index.html b/CODEX1/index.html
+index e711aa206a7ef2f8960461ac31669ff3ba84ded1..d3f428a9a3c6e6aea3943feb49df4bd0f51270be 100644
+--- a/CODEX1/index.html
++++ b/CODEX1/index.html
+@@ -161,51 +161,84 @@
+         </div>
+         <div>
+           <label for="latInput">纬度 (°N)</label>
+           <input type="number" id="latInput" step="0.0001" />
+         </div>
+       </div>
+       <div class="btn-row">
+         <button type="button" id="applyBtn">计算真太阳时</button>
+         <button type="button" class="btn-secondary" id="nowBtn">使用当前北京时</button>
+       </div>
+       <div class="status" id="status"></div>
+     </section>
+ 
+     <section class="panel">
+       <div class="result">
+         <div class="time" id="trueTime">--:--:--</div>
+         <div class="meta" id="metaInfo">等待输入。</div>
+       </div>
+     </section>
+ 
+     <footer>
+       公式：真太阳时 = 北京时 + 均时差(EOT) + 4 × (经度 - 120°) 分钟。
+     </footer>
+   </div>
+ 
+-  <script src="./lib/astronomy.browser.min.js"></script>
++  <script>
++    function loadAstronomyScript() {
++      const candidates = [
++        "./lib/astronomy.browser.min.js",
++        "lib/astronomy.browser.min.js",
++        "/CODEX1/lib/astronomy.browser.min.js",
++        "/codex1/lib/astronomy.browser.min.js"
++      ];
++
++      return new Promise((resolve, reject) => {
++        let index = 0;
++
++        function tryNext() {
++          if (index >= candidates.length) {
++            reject(new Error("Astronomy script not found"));
++            return;
++          }
++
++          const src = candidates[index++];
++          const script = document.createElement("script");
++          script.src = src;
++          script.async = false;
++          script.onload = () => resolve(src);
++          script.onerror = () => {
++            script.remove();
++            tryNext();
++          };
++          document.head.appendChild(script);
++        }
++
++        tryNext();
++      });
++    }
++  </script>
+   <script>
+     const BEIJING_TZ = 8;
+     const DEFAULT_LON = 116.4074;
+     const DEFAULT_LAT = 39.9042;
+ 
+     const dateInput = document.getElementById("dateInput");
+     const timeInput = document.getElementById("timeInput");
+     const lonInput = document.getElementById("lonInput");
+     const latInput = document.getElementById("latInput");
+     const statusEl = document.getElementById("status");
+     const trueTimeEl = document.getElementById("trueTime");
+     const metaInfoEl = document.getElementById("metaInfo");
+ 
+     function formatTwo(n) {
+       return String(n).padStart(2, "0");
+     }
+ 
+     function formatBeijingDate(date) {
+       const utcMs = date.getTime() + date.getTimezoneOffset() * 60000;
+       const bj = new Date(utcMs + BEIJING_TZ * 3600000);
+       const y = bj.getUTCFullYear();
+       const m = formatTwo(bj.getUTCMonth() + 1);
+       const d = formatTwo(bj.getUTCDate());
+       return `${y}-${m}-${d}`;
+     }
+@@ -247,32 +280,41 @@
+       const lat = parseFloat(latInput.value);
+ 
+       if (!dateStr || !timeStr || Number.isNaN(lon) || Number.isNaN(lat)) {
+         statusEl.textContent = "请完整填写日期、时间与经纬度。";
+         return;
+       }
+ 
+       const utcDate = buildUtcFromBeijing(dateStr, timeStr);
+       const eotMin = Astronomy.EquationOfTime(utcDate);
+       const lonCorrectionMin = (lon - 120) * 4;
+       const trueSolarMs = utcDate.getTime() + (eotMin + lonCorrectionMin) * 60000;
+ 
+       trueTimeEl.textContent = formatClockFromUtc(trueSolarMs);
+       metaInfoEl.textContent = `北京时: ${dateStr} ${timeStr} | EOT: ${eotMin.toFixed(2)} min | 经度修正: ${lonCorrectionMin.toFixed(2)} min | 坐标: ${lat.toFixed(4)}N, ${lon.toFixed(4)}E`;
+     }
+ 
+     function setDefaultNow() {
+       const now = new Date();
+       dateInput.value = formatBeijingDate(now);
+       timeInput.value = formatBeijingTime(now);
+       lonInput.value = DEFAULT_LON;
+       latInput.value = DEFAULT_LAT;
+       update();
+     }
+ 
+-    document.getElementById("applyBtn").addEventListener("click", update);
+-    document.getElementById("nowBtn").addEventListener("click", setDefaultNow);
++    function init() {
++      document.getElementById("applyBtn").addEventListener("click", update);
++      document.getElementById("nowBtn").addEventListener("click", setDefaultNow);
++      setDefaultNow();
++    }
+ 
+-    setDefaultNow();
++    loadAstronomyScript()
++      .then(() => {
++        init();
++      })
++      .catch(() => {
++        statusEl.textContent = "Astronomy 引擎未加载，请确认 /lib/astronomy.browser.min.js 路径是否正确。";
++      });
+   </script>
+ </body>
+ </html>

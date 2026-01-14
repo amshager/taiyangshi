@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>勾陈一天文时终端 · 日历主屏样品（含罗盘指示器）</title>
+  <style>
+    :root{
+      --bg:#07090c;
+      --panel: rgba(10,12,16,.78);
+      --panel2: rgba(10,12,16,.55);
+      --line: rgba(203,170,96,.35);
+      --line2: rgba(203,170,96,.18);
+      --gold: rgba(203,170,96,.92);
+      --gold2: rgba(203,170,96,.58);
+      --text: rgba(236,236,236,.92);
+      --muted: rgba(236,236,236,.55);
+      --muted2: rgba(236,236,236,.38);
+      --cyan: rgba(107,241,255,.86);
+      --danger: rgba(255,118,118,.86);
+      --warn: rgba(255,212,120,.88);
+      --ok: rgba(120,255,180,.72);
+      --shadow: 0 18px 60px rgba(0,0,0,.50);
+      --shadow2: 0 30px 90px rgba(0,0,0,.55);
+      --radius: 18px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --serif: ui-serif, "Times New Roman", "Noto Serif CJK SC", "Songti SC", serif;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "PingFang SC","Microsoft YaHei", sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:
+        radial-gradient(1400px 900px at 50% 18%, rgba(255,255,255,.05), transparent 55%),
+        radial-gradient(900px 700px at 15% 88%, rgba(107,241,255,.05), transparent 55%),
+        radial-gradient(900px 700px at 92% 22%, rgba(203,170,96,.05), transparent 55%),
+        var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow-x:hidden;
+    }
+    body:before{
+      content:"";
+      position:fixed; inset:0;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.13'/%3E%3C/svg%3E");
+      mix-blend-mode: overlay;
+      opacity:.35;
+      pointer-events:none;
+    }
+
+    .app{
+      min-height:100%;
+      display:flex;
+      justify-content:center;
+      padding: calc(12px + env(safe-area-inset-top)) 12px calc(16px + env(safe-area-inset-bottom));
+    }
+    .frame{
+      width:min(1100px, 100%);
+      display:grid;
+      gap: 12px;
+    }
+
+    /* ===== HUD ===== */
+    .hud{
+      position:sticky;
+      top: calc(10px + env(safe-area-inset-top));
+      z-index: 30;
+      padding: 10px 12px;
+      border: 1px solid var(--line2);
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(10,12,16,.78), rgba(8,10,14,.56));
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .hud:before{
+      content:"";
+      position:absolute; inset:-2px;
+      background:
+        radial-gradient(520px 200px at 18% 0%, rgba(203,170,96,.10), transparent 60%),
+        radial-gradient(520px 260px at 72% 10%, rgba(107,241,255,.07), transparent 60%);
+      pointer-events:none;
+      filter: blur(0.4px);
+    }
+    .hudGrid{
+      position:relative;
+      display:grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 10px 12px;
+      align-items:center;
+    }
+    .hudLeft{
+      padding: 6px 8px;
+      border-right: 1px solid rgba(236,236,236,.08);
+    }
+    .hudTime{
+      font-family: var(--serif);
+      letter-spacing:.10em;
+      font-size: 44px;
+      line-height: 1.02;
+      color: var(--gold);
+      text-shadow: 0 0 18px rgba(203,170,96,.12);
+      white-space:nowrap;
+    }
+    .hudSub{
+      margin-top: 6px;
+      display:flex;
+      gap: 8px;
+      flex-wrap:wrap;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+      align-items:center;
+    }
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(236,236,236,.14);
+      background: rgba(0,0,0,.16);
+      white-space:nowrap;
+      cursor:pointer;
+      user-select:none;
+    }
+    .chip strong{ color: rgba(236,236,236,.82); font-weight:600; }
+    .dot{ width:8px; height:8px; border-radius:99px; background: var(--cyan); box-shadow: 0 0 14px rgba(107,241,255,.22); }
+    .dot.ok{ background: var(--ok); box-shadow: 0 0 16px rgba(120,255,180,.16); }
+    .dot.warn{ background: var(--warn); box-shadow: 0 0 16px rgba(255,212,120,.16); }
+    .dot.danger{ background: var(--danger); box-shadow: 0 0 16px rgba(255,118,118,.16); }
+
+    .hudRight{
+      padding: 6px 6px;
+      display:grid;
+      grid-template-columns: 1fr 104px;
+      gap: 10px;
+      align-items:start;
+    }
+    .hudInfo{
+      display:flex;
+      flex-direction:column;
+      gap: 8px;
+      min-width:0;
+    }
+    .lineRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      padding: 6px 10px;
+      border: 1px solid rgba(203,170,96,.16);
+      background: rgba(0,0,0,.14);
+      border-radius: 12px;
+      min-width:0;
+    }
+    .lineRow .k{
+      font-family: var(--serif);
+      letter-spacing:.18em;
+      color: var(--gold2);
+      font-size: 12px;
+      white-space:nowrap;
+    }
+    .lineRow .v{
+      font-family: var(--mono);
+      color: rgba(236,236,236,.82);
+      font-size: 12px;
+      text-align:right;
+      overflow:hidden;
+      text-overflow: ellipsis;
+      white-space:nowrap;
+      flex:1;
+    }
+    .flags{
+      display:flex;
+      flex-wrap:wrap;
+      gap: 8px;
+    }
+    .flag{
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(236,236,236,.14);
+      background: rgba(0,0,0,.14);
+      font-family: var(--mono);
+      font-size: 12px;
+      color: rgba(236,236,236,.86);
+    }
+    .flag.hidden{ display:none; }
+
+    /* ===== Mini Compass (indicator) ===== */
+    .miniCompass{
+      position:relative;
+      width: 104px;
+      height: 104px;
+      border-radius: 18px;
+      border: 1px solid rgba(236,236,236,.12);
+      background: rgba(0,0,0,.14);
+      overflow:hidden;
+      box-shadow: 0 0 0 rgba(0,0,0,0);
+      cursor:pointer;
+      user-select:none;
+    }
+    .miniCompass:before{
+      content:"";
+      position:absolute; inset:-2px;
+      background:
+        radial-gradient(140px 120px at 50% 18%, rgba(107,241,255,.06), transparent 60%),
+        radial-gradient(160px 140px at 50% 92%, rgba(203,170,96,.08), transparent 60%);
+      pointer-events:none;
+    }
+    .miniCompass svg{ position:absolute; inset:0; width:100%; height:100%; }
+    .mcCross{
+      position:absolute; inset:0; pointer-events:none;
+      display:grid; place-items:center;
+    }
+    .mcCross:before, .mcCross:after{
+      content:""; position:absolute; background: rgba(236,236,236,.18);
+    }
+    .mcCross:before{ width: 66%; height: 1px; }
+    .mcCross:after{ height: 66%; width: 1px; }
+    .mcRing{
+      width: 44px; height: 44px;
+      border-radius: 999px;
+      border: 1px solid rgba(236,236,236,.18);
+      background: radial-gradient(circle at 50% 50%, rgba(203,170,96,.10), rgba(0,0,0,.10));
+      box-shadow: 0 0 26px rgba(203,170,96,.10);
+    }
+    .mcRead{
+      position:absolute;
+      left: 8px; right: 8px; bottom: 8px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: rgba(236,236,236,.78);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 8px;
+      padding: 4px 6px;
+      border-radius: 12px;
+      border: 1px solid rgba(236,236,236,.12);
+      background: rgba(0,0,0,.14);
+      backdrop-filter: blur(6px);
+    }
+    .mcTag{
+      color: rgba(203,170,96,.78);
+      font-family: var(--serif);
+      letter-spacing:.14em;
+    }
+    .mcDeg{ color: rgba(236,236,236,.82); }
+
+    /* ===== Main panels ===== */
+    .mainGrid{
+      display:grid;
+      grid-template-columns: 1fr 1.08fr;
+      gap: 12px;
+      align-items:start;
+    }
+    .card{
+      border-radius: 20px;
+      border: 1px solid var(--line2);
+      background: linear-gradient(180deg, rgba(10,12,16,.76), rgba(6,7,10,.86));
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      position:relative;
+    }
+    .card:before{
+      content:"";
+      position:absolute; inset:-2px;
+      background:
+        radial-gradient(760px 420px at 55% 10%, rgba(203,170,96,.10), transparent 60%),
+        radial-gradient(720px 520px at 30% 80%, rgba(107,241,255,.08), transparent 60%);
+      pointer-events:none;
+      filter: blur(0.4px);
+    }
+    .cardHead{
+      position:relative;
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid rgba(236,236,236,.08);
+      display:flex;
+      align-items:baseline;
+      justify-content:space-between;
+      gap: 10px;
+    }
+    .title{
+      font-family: var(--serif);
+      letter-spacing:.20em;
+      color: rgba(203,170,96,.72);
+      text-transform: uppercase;
+      font-size: 12px;
+      display:flex;
+      gap: 10px;
+      align-items:baseline;
+      white-space:nowrap;
+    }
+    .title .cn{ letter-spacing:.28em; color: rgba(203,170,96,.82); }
+    .title .en{ color: rgba(203,170,96,.45); }
+    .actions{
+      display:flex; gap: 8px; align-items:center;
+      min-width: 0;
+    }
+    .btn{
+      border: 1px solid rgba(203,170,96,.22);
+      background: rgba(0,0,0,.16);
+      color: rgba(236,236,236,.78);
+      padding: 7px 10px;
+      border-radius: 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      white-space:nowrap;
+    }
+    .btn.primary{ border-color: rgba(107,241,255,.22); color: rgba(107,241,255,.86); }
+    .btn:active{ transform: scale(.99); }
+
+    .console{
+      position:relative;
+      padding: 12px 14px 14px;
+      display:grid;
+      gap: 10px;
+    }
+    .row{ display:flex; gap: 8px; flex-wrap:wrap; align-items:center; }
+    .pill{
+      border:1px solid rgba(107,241,255,.22);
+      color: rgba(107,241,255,.86);
+      background: rgba(107,241,255,.05);
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-family: var(--mono);
+      font-size: 12px;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      min-width:0;
+      max-width:100%;
+    }
+    .pill .mut{ color: rgba(236,236,236,.55); }
+    .pill .clip{ overflow:hidden; text-overflow: ellipsis; white-space:nowrap; max-width: 56vw; }
+
+    .hint{
+      color: rgba(236,236,236,.40);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing:.04em;
+    }
+
+    /* ===== Capture mode =====
+       目标：手机截屏“一屏全收”：太阳时 + 罗盘(小) + 干支 + 年月日时 + 提醒
+       => 不是放大任何东西，而是“收敛其它区域” */
+    body.capture .mainGrid{ display:none; }
+    body.capture .frame{ gap: 10px; }
+    body.capture .hud{ position:relative; top:0; }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 980px){
+      .mainGrid{ grid-template-columns: 1fr; }
+      .hudGrid{ grid-template-columns: 1fr; }
+      .hudLeft{ border-right:0; border-bottom: 1px solid rgba(236,236,236,.08); padding-bottom: 10px; }
+      .hudRight{ grid-template-columns: 1fr 104px; }
+    }
+    @media (max-width: 520px){
+      .hudTime{ font-size: clamp(34px, 8.6vw, 44px); }
+      .hudRight{ grid-template-columns: 1fr 98px; }
+      .miniCompass{ width: 98px; height: 98px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <div class="frame">
+
+      <section class="hud" id="hud">
+        <div class="hudGrid">
+          <div class="hudLeft">
+            <div class="hudTime" id="hud_tst">--:--:--</div>
+            <div class="hudSub">
+              <span class="chip" id="chip_capture" title="截屏模式（仅保留HUD）">📸 <strong>截屏模式</strong></span>
+              <span class="chip" id="chip_compass" title="启用罗盘（需要权限/HTTPS）">🧭 <strong id="compass_status">OFF</strong></span>
+              <span class="chip" id="chip_place"><span class="dot" id="dot_gps"></span><strong id="hud_place">—</strong></span>
+              <span class="chip">STD <strong id="hud_std">--:--:--</strong></span>
+              <span class="chip">ΔEOT <strong id="hud_eot">—</strong></span>
+            </div>
+          </div>
+
+          <div class="hudRight">
+            <div class="hudInfo">
+              <div class="lineRow">
+                <div class="k">年月日时</div>
+                <div class="v" id="hud_ymdh">—</div>
+              </div>
+              <div class="lineRow">
+                <div class="k">干支·纳音</div>
+                <div class="v" id="hud_gz">—</div>
+              </div>
+
+              <div class="flags">
+                <div class="flag hidden" id="flag_phase"><span class="dot warn"></span><span id="flag_phase_txt">朔望</span></div>
+                <div class="flag hidden" id="flag_rx"><span class="dot warn"></span><span id="flag_rx_txt">水逆</span></div>
+                <div class="flag hidden" id="flag_voc"><span class="dot warn"></span><span id="flag_voc_txt">VOC</span></div>
+                <div class="flag hidden" id="flag_alert"><span class="dot danger"></span><span id="flag_alert_txt">⚠ 触发规则</span></div>
+              </div>
+            </div>
+
+            <!-- mini compass indicator -->
+            <div class="miniCompass" id="miniCompass" title="点我启用/校验罗盘">
+              <svg viewBox="-50 -50 100 100" aria-label="mini compass">
+                <circle r="44" fill="rgba(0,0,0,.08)" stroke="rgba(236,236,236,.16)" stroke-width="1"/>
+                <circle r="34" fill="rgba(203,170,96,.08)" stroke="rgba(203,170,96,.18)" stroke-width="1"/>
+                <!-- N label -->
+                <text x="0" y="-30" text-anchor="middle" font-size="9" fill="rgba(236,236,236,.62)" font-family="ui-monospace, Menlo, monospace">N</text>
+                <!-- 24 separators (thin) -->
+                <g id="mcSep"></g>
+                <!-- needle rotates -->
+                <g id="mcNeedle" transform="rotate(0)">
+                  <path d="M0,-36 L6,-18 L0,-22 L-6,-18 Z" fill="rgba(255,118,118,.72)"/>
+                  <path d="M0,36 L6,18 L0,22 L-6,18 Z" fill="rgba(107,241,255,.55)"/>
+                  <circle r="3.8" fill="rgba(0,0,0,.18)" stroke="rgba(236,236,236,.22)" stroke-width="1"/>
+                </g>
+              </svg>
+              <div class="mcCross"><div class="mcRing"></div></div>
+              <div class="mcRead"><span class="mcTag" id="mc_24">—</span><span class="mcDeg" id="mc_deg">—</span></div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <div class="mainGrid" id="mainGrid">
+
+        <section class="card">
+          <div class="cardHead">
+            <div class="title"><span class="cn">控制台</span><span class="en">CONSOLE</span></div>
+            <div class="actions">
+              <button class="btn" id="btn_diag">罗盘诊断</button>
+            </div>
+          </div>
+
+          <div class="console">
+            <div class="row">
+              <div class="pill" id="btn_now">⏱ <span class="mut">跳转</span> 现在</div>
+              <div class="pill" id="btn_capture2">📸 <span class="mut">截屏</span> 模式</div>
+              <div class="pill" id="btn_compass2">🧭 <span class="mut">启用</span> 罗盘</div>
+            </div>
+            <div class="hint" id="hint_compass">罗盘提示：安卓需要“Motion sensors/动作与方向”站点权限 + HTTPS（localhost也行）</div>
+            <div class="hint" id="diag"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="cardHead">
+            <div class="title"><span class="cn">占位</span><span class="en">PLACEHOLDER</span></div>
+            <div class="actions">
+              <button class="btn primary" onclick="alert('这里继续放你之前的日历/时间轴/抽屉即可。')">打开说明</button>
+            </div>
+          </div>
+          <div class="console">
+            <div class="hint">这份文件只把「罗盘」改成了“指示器级别”，不抢主角；截屏模式也改成“收敛其它区域”。</div>
+            <div class="hint">你可以把它并回你的主版本：保留 HUD+miniCompass，其它模块照旧。</div>
+          </div>
+        </section>
+
+      </div>
+
+    </div>
+  </div>
+
+<script>
+/* ===================== helpers ===================== */
+const $ = (id)=>document.getElementById(id);
+const pad = (n)=>String(n).padStart(2,'0');
+const fmtHMS = (d)=>`${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+const fmtYMDH = (d)=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const normalizeDeg = (d)=>(((d%360)+360)%360);
+function lerpAngle(a,b,t){
+  a=normalizeDeg(a); b=normalizeDeg(b);
+  let delta=b-a;
+  if(delta>180) delta-=360;
+  if(delta<-180) delta+=360;
+  return normalizeDeg(a+delta*t);
+}
+
+/* ===================== 24山 mapping ===================== */
+const M24 = ["壬","子","癸","丑","艮","寅","甲","卯","乙","辰","巽","巳","丙","午","丁","未","坤","申","庚","酉","辛","戌","乾","亥"];
+function degTo24(deg){
+  if(deg==null || !Number.isFinite(deg)) return "—";
+  const idx = Math.floor(normalizeDeg(deg) / 15);
+  return M24[idx] ?? "—";
+}
+
+/* ===================== state ===================== */
+const state = {
+  std: new Date(),
+  eotMin: -4, // demo
+  place: { name:"Chongqing · Demo", gps:{on:true} },
+  hud: {
+    ganzhiNayin: "乙巳年 戊子月 壬申日 庚戌时｜纳音：剑锋金",
+    flags: { phase:false, rx:false, voc:false, alert:false,
+      phaseText:"🌑朔/🌕望（演示）", rxText:"☿Rx（演示）", vocText:"VOC NOW（演示）", alertText:"⚠ 触发规则（演示）"
+    },
+  },
+  compass:{
+    enabled:false,
+    raw:null,
+    smooth:null,
+    lastEvent:null
+  }
+};
+
+function toTrueSolar(std){
+  return new Date(std.getTime() + (state.eotMin||0)*60000);
+}
+function setFlag(id, on, text){
+  const el = $("flag_"+id);
+  const tx = $("flag_"+id+"_txt");
+  if(!el||!tx) return;
+  if(on){ el.classList.remove("hidden"); tx.textContent=text; }
+  else { el.classList.add("hidden"); }
+}
+
+function renderHUD(){
+  const tst = toTrueSolar(state.std);
+  $("hud_tst").textContent = fmtHMS(tst);
+  $("hud_std").textContent = fmtHMS(state.std);
+  $("hud_eot").textContent = `${state.eotMin>0?"+":""}${state.eotMin}m`;
+  $("hud_place").textContent = state.place?.name ?? "—";
+  $("hud_ymdh").textContent = fmtYMDH(state.std);
+  $("hud_gz").textContent = state.hud?.ganzhiNayin ?? "—";
+
+  const gpsDot = $("dot_gps");
+  gpsDot.className = "dot " + (state.place?.gps?.on ? "" : "warn");
+
+  const f = state.hud.flags || {};
+  setFlag("phase", !!f.phase, f.phaseText || "朔望");
+  setFlag("rx", !!f.rx, f.rxText || "水逆");
+  setFlag("voc", !!f.voc, f.vocText || "VOC");
+  setFlag("alert", !!f.alert, f.alertText || "⚠ 触发规则");
+
+  $("compass_status").textContent = state.compass.enabled ? "ON" : "OFF";
+}
+
+/* ===================== mini compass svg build ===================== */
+function buildMiniSep(){
+  const g = $("mcSep");
+  g.innerHTML="";
+  for(let i=0;i<24;i++){
+    const deg = i*15;
+    const a = (deg-90) * Math.PI/180;
+    const r1=34, r2=44;
+    const x1=Math.cos(a)*r1, y1=Math.sin(a)*r1;
+    const x2=Math.cos(a)*r2, y2=Math.sin(a)*r2;
+    const ln=document.createElementNS("http://www.w3.org/2000/svg","line");
+    ln.setAttribute("x1",x1); ln.setAttribute("y1",y1);
+    ln.setAttribute("x2",x2); ln.setAttribute("y2",y2);
+    ln.setAttribute("stroke","rgba(203,170,96,.12)");
+    ln.setAttribute("stroke-width","1");
+    g.appendChild(ln);
+  }
+}
+
+function applyHeading(deg){
+  deg = normalizeDeg(deg);
+  state.compass.raw = deg;
+  if(state.compass.smooth==null) state.compass.smooth = deg;
+  state.compass.smooth = lerpAngle(state.compass.smooth, deg, 0.18);
+
+  const needle = $("mcNeedle");
+  // rotate needle by -heading (needle points north in world)
+  needle.setAttribute("transform", `rotate(${-state.compass.smooth})`);
+
+  $("mc_deg").textContent = `${state.compass.smooth.toFixed(0)}°`;
+  $("mc_24").textContent = degTo24(state.compass.smooth);
+}
+
+/* ===================== DeviceOrientation on Android/iOS ===================== */
+function onOrientation(e){
+  state.compass.lastEvent = e;
+
+  let heading = null;
+
+  // iOS Safari sometimes provides webkitCompassHeading
+  if(typeof e.webkitCompassHeading === "number"){
+    heading = e.webkitCompassHeading;
+  }else if(typeof e.alpha === "number"){
+    heading = 360 - e.alpha;
+
+    // compensate screen orientation angle if available
+    const o = (screen.orientation && typeof screen.orientation.angle === "number")
+      ? screen.orientation.angle
+      : (window.orientation || 0);
+    heading += o;
+  }
+
+  if(heading!=null && Number.isFinite(heading)){
+    applyHeading(heading);
+  }
+}
+
+async function enableCompass(){
+  const D = window.DeviceOrientationEvent;
+  if(!D){
+    state.compass.enabled = false;
+    $("compass_status").textContent = "NOAPI";
+    $("hint_compass").textContent = "此浏览器没有 DeviceOrientationEvent。建议：Chrome/Edge/Samsung Internet（非应用内置浏览器）。";
+    return;
+  }
+
+  try{
+    // iOS 13+ requires permission prompt
+    if(typeof D.requestPermission === "function"){
+      const res = await D.requestPermission();
+      if(res !== "granted"){
+        state.compass.enabled = false;
+        $("compass_status").textContent = "DENIED";
+        return;
+      }
+    }
+
+    // Important: secure context required in many browsers
+    if(!window.isSecureContext){
+      state.compass.enabled = false;
+      $("compass_status").textContent = "HTTP";
+      $("hint_compass").textContent = "当前不是安全环境（HTTP）。请用 HTTPS 或 localhost 打开（否则事件可能完全不触发）。";
+      return;
+    }
+
+    window.addEventListener("deviceorientationabsolute", onOrientation, true);
+    window.addEventListener("deviceorientation", onOrientation, true);
+
+    state.compass.enabled = true;
+    renderHUD();
+    $("hint_compass").textContent = "罗盘已启用：若仍无数值，多半是站点“Motion sensors/动作与方向”被禁，或设备无磁力计。";
+  }catch(err){
+    state.compass.enabled = false;
+    $("compass_status").textContent = "ERR";
+    $("hint_compass").textContent = "启用失败：" + (err?.message || String(err));
+  }
+}
+
+function toggleCapture(){
+  document.body.classList.toggle("capture");
+}
+
+/* ===================== diagnostics ===================== */
+function diagText(){
+  const e = state.compass.lastEvent;
+  const parts = [];
+  parts.push(`isSecureContext=${window.isSecureContext}`);
+  parts.push(`UA=${navigator.userAgent.slice(0,70)}…`);
+  if(!e){
+    parts.push("LastEvent=NONE（事件未触发）");
+  }else{
+    const a = (typeof e.alpha==="number") ? e.alpha.toFixed(2) : String(e.alpha);
+    const b = (typeof e.beta==="number") ? e.beta.toFixed(2) : String(e.beta);
+    const g = (typeof e.gamma==="number") ? e.gamma.toFixed(2) : String(e.gamma);
+    parts.push(`alpha=${a}, beta=${b}, gamma=${g}`);
+    parts.push(`webkitCompassHeading=${(typeof e.webkitCompassHeading==="number")?e.webkitCompassHeading.toFixed(2):String(e.webkitCompassHeading)}`);
+    parts.push(`absolute=${String(e.absolute)}`);
+  }
+  parts.push(`heading(raw/smooth)=${state.compass.raw?.toFixed?.(1)??"—"}/${state.compass.smooth?.toFixed?.(1)??"—"}`);
+  return parts.join(" | ");
+}
+
+/* ===================== demo ticking ===================== */
+function tick(){
+  state.std = new Date();
+
+  // demo flags: flicker
+  const s = state.std.getSeconds();
+  state.hud.flags.phase = (s%17)<3;
+  state.hud.flags.rx    = (s%23)<4;
+  state.hud.flags.voc   = (s%13)<4;
+  state.hud.flags.alert = (s%19)<4;
+
+  renderHUD();
+  $("diag").textContent = diagText();
+}
+
+function bind(){
+  $("chip_capture").addEventListener("click", toggleCapture);
+  $("btn_capture2").addEventListener("click", toggleCapture);
+
+  const compassBtns = [$("chip_compass"), $("btn_compass2"), $("miniCompass")];
+  compassBtns.forEach(el=>el.addEventListener("click", enableCompass));
+
+  $("btn_now").addEventListener("click", ()=>{ state.std = new Date(); });
+
+  $("btn_diag").addEventListener("click", ()=>{
+    alert(
+`罗盘诊断（看这里能快速定位原因）\n\n` +
+diagText() +
+`\n\n安卓常见原因：\n`+
+`1) 不是 HTTPS/localhost（isSecureContext=false）\n`+
+`2) Chrome 站点设置里 Motion sensors 被禁用\n`+
+`3) 系统层“传感器关闭/Sensors off”开了（快速开关）\n`+
+`4) 设备没有磁力计（或被厂商阉割）\n`+
+`5) 你是在“应用内置浏览器/微信/微博/某App WebView”里打开（很多会屏蔽）\n`
+    );
+  });
+
+  $("chip_place").addEventListener("click", ()=>alert("地点设置弹窗可从你主版本合并进来。"));
+}
+
+function init(){
+  buildMiniSep();
+  bind();
+  renderHUD();
+  setInterval(tick, 300);
+}
+init();
+
+/* ===== Public API ===== */
+window.GouchengUI = {
+  setData: (data)=>{
+    if(data?.place) state.place = structuredClone(data.place);
+    if(data?.time?.std) state.std = new Date(data.time.std);
+    if(data?.time?.eotMin!=null) state.eotMin = data.time.eotMin;
+
+    if(data?.hud?.ganzhiNayin) state.hud.ganzhiNayin = data.hud.ganzhiNayin;
+    if(data?.hud?.flags) state.hud.flags = structuredClone(data.hud.flags);
+
+    renderHUD();
+  },
+  enableCompass,
+  toggleCapture,
+  getCompass: ()=>({ enabled: state.compass.enabled, raw: state.compass.raw, smooth: state.compass.smooth }),
+};
+</script>
+</body>
+</html>

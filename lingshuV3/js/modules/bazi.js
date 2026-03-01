@@ -76,9 +76,10 @@ function findNearestPlace(lat, lon) {
  */
 function updateGpsUI(lat, lon, accuracy, type, manualName = null) {
     if (!UI.gpsCoords || !UI.gpsAcc || !UI.gpsDot) return;
-
-    const latStr = lat.toFixed(2);
-    const lonStr = lon.toFixed(2);
+    
+    // 提高显示精度到4位小数（约11米精度），避免四舍五入带来的误差感
+    const latStr = lat.toFixed(4);
+    const lonStr = lon.toFixed(4);
     
     // Update Dot Style
     if (type === 'AUTO') {
@@ -127,7 +128,11 @@ function initGPS() {
                 if(UI.gpsCoords) UI.gpsCoords.innerText = "GPS OFF"; 
                 if(UI.gpsAcc) UI.gpsAcc.innerText = "";
             },
-            { enableHighAccuracy: true }
+            { 
+                enableHighAccuracy: true,
+                timeout: 15000,      // 允许最多15秒获取真实卫星信号，而不是立即返回基站IP定位
+                maximumAge: 0        // 强制不使用缓存的旧位置
+            }
         );
     }
 }

@@ -8,7 +8,7 @@
     <!-- 移除直接的 app.js 引用，交由 index.tsx 引入 -->
     <!-- 保留 CDN 库 -->
     <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
-<link rel="stylesheet" href="/index.css">
+<link rel="stylesheet" href="./style.css">
 </head>
 <body>
 
@@ -230,7 +230,6 @@
     </div>
     
     <!-- 关键：指定 index.tsx 为入口，兼容 React 环境 -->
-    <script type="module" src="./index.tsx"></script>
-<script type="module" src="/index.tsx"></script>
+<script type="module" src="./js/app.js"></script>
 </body>
 </html>

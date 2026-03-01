@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>灵枢 LING SHU Pro</title>
+    <!-- 移除直接的 CSS 引用，交由 index.tsx 引入 -->
+    <!-- 移除直接的 app.js 引用，交由 index.tsx 引入 -->
+    <!-- 保留 CDN 库 -->
+    <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+
+    <div id="app-container">
+        <!-- 顶部控制栏 -->
+        <div class="control-header">
+            <!-- 左侧：GPS -->
+            <div class="gps-status" id="gps-indicator" title="点击刷新定位">
+                <div class="gps-dot"></div>
+                <div class="gps-info">
+                    <span id="gps-coords">LOCATING...</span>
+                    <span id="gps-accuracy" class="gps-sub"></span>
+                </div>
+            </div>
+
+            <!-- 中间：品牌名 (新位置) -->
+            <div class="brand-title-top">
+                <span>靈</span>
+                <span>樞</span>
+            </div>
+
+            <!-- 右侧：操作按钮 -->
+            <div class="action-group">
+                <button class="icon-btn" id="btn-toggle-flow" title="暂停/继续">
+                    <svg id="icon-pause" viewBox="0 0 24 24" style="display:none"><path fill="currentColor" d="M14,19H18V5H14M6,19H10V5H6V19Z"/></svg>
+                    <svg id="icon-play" viewBox="0 0 24 24"><path fill="currentColor" d="M8,5.14V19.14L19,12.14L8,5.14Z"/></svg>
+                </button>
+                <button class="icon-btn" id="btn-reset-now" title="复位至此刻">
+                    <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8Z"/></svg>
+                </button>
+                <button class="icon-btn" id="btn-settings" title="设置">
+                    <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,13L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- 仪表盘 (HUD) -->
+        <header class="dashboard-header">
+            <!-- 左: 罗盘 -->
+            <div class="hud-left-compass">
+                <div class="compass-widget">
+                    <!-- 新增正北指向标 -->
+                    <div class="cw-heading-marker"></div>
+                    <div class="cw-cross-v"></div>
+                    <div class="cw-cross-h"></div>
+                    <div class="cw-ring" id="cw-ring"></div>
+                    <div class="cw-level-area"><div class="cw-level-dot" id="level-dot"></div></div>
+                </div>
+                <div class="degree-display">
+                    <span id="deg-num">--</span>° <span id="dir-txt">--</span>
+                </div>
+                
+                <!-- 中轴：移动到这里，作为左侧容器的子元素，锚定到右边缘 -->
+                <div class="hud-center-pivot" id="term-pivot">
+                    <!-- JS 填充 -->
+                    <span>--</span>
+                    <span>--</span>
+                </div>
+            </div>
+
+            <!-- 右: 时间与干支 -->
+            <div class="hud-right-time">
+                <!-- 真太阳时 + 节气时间 -->
+                <div class="time-group">
+                    <div class="ts-row">
+                        <div class="ts-time" id="true-solar-display">00:00:00</div>
+                        <div class="term-info-box" id="term-info">
+                            <!-- JS 填充 -->
+                        </div>
+                    </div>
+                    
+                    <div class="legal-row">
+                        <span id="time-display">00:00:00</span>
+                        <span id="time-delta" class="delta-info">Δ --m</span>
+                        <span id="pentad-display" class="pentad-info"></span> 
+                    </div>
+                </div>
+                <div class="gz-group" id="gz-container">
+                    <!-- JS 生成 -->
+                </div>
+            </div>
+        </header>
+
+        <!-- 主内容区 (日历) -->
+        <main class="main-content">
+            <div class="cal-container">
+                <!-- 移除背景水印 -->
+                
+                <div class="cal-header-row">
+                    <!-- 左侧：公历年月显示 + 农历 + 彝历 -->
+                    <div class="cal-title-group">
+                        <span id="cal-title-year-month">2024年01月</span>
+                    </div>
+                    
+                    <!-- 右侧：步进控制器 -->
+                    <div class="stepper-group">
+                        <button class="icon-btn tiny" id="btn-prev"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z"/></svg></button>
+                        <div class="step-wrapper">
+                            <select id="step-selector" class="step-select">
+                                <option value="2h">1 时辰</option>
+                                <option value="1d">1 日</option>
+                                <option value="1M">1 月</option>
+                                <option value="1y">1 年</option>
+                            </select>
+                        </div>
+                        <button class="icon-btn tiny" id="btn-next"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z"/></svg></button>
+                    </div>
+                </div>
+                
+                <div class="cal-week-head">
+                    <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+                </div>
+                <!-- 日历网格 -->
+                <div class="cal-grid" id="cal-grid"></div>
+            </div>
+
+            <!-- 天文三系统数据 -->
+            <div class="astro-data-box" id="astro-box">
+                <div class="astro-header-labels">
+                    <div class="ah-col icon-col"></div>
+                    <div class="ah-col">回归(气)</div>
+                    <div class="ah-col wide">宿度(J2000)</div>
+                    <div class="ah-col mini">重叠</div>
+                    <div class="ah-col">恒星(Lahiri) <span id="ayanamsa-val" class="header-ayan">--</span></div>
+                    <div class="ah-col extra-slot"></div>
+                </div>
+                <!-- 太阳行 -->
+                <div class="astro-row compact">
+                    <div class="astro-label sun"></div>
+                    <div id="sun-trop" class="astro-cell">--</div>
+                    <div id="sun-mans" class="astro-cell wide">--</div>
+                    <div id="sun-ov" class="astro-cell mini">--</div>
+                    <div id="sun-sid" class="astro-cell">--</div>
+                    <div class="astro-cell extra-slot"></div>
+                </div>
+                <!-- 月亮行 -->
+                <div class="astro-row compact">
+                    <div class="astro-label moon"></div>
+                    <div id="moon-trop" class="astro-cell">--</div>
+                    <div id="moon-mans" class="astro-cell wide">--</div>
+                    <div id="moon-ov" class="astro-cell mini">--</div>
+                    <div id="moon-sid" class="astro-cell">--</div>
+                    <div class="astro-cell extra-slot"></div>
+                </div>
+            </div>
+
+            <!-- 吉凶宿值面板 (New Structure) -->
+            <div class="luck-data-box" id="luck-box">
+                <div class="luck-row">
+                    <!-- 左侧：基础值日数据 -->
+                    <div class="luck-section-left">
+                        <!-- 三合宿 -->
+                        <div class="luck-item-group">
+                            <span class="luck-label">三合宿</span>
+                            <span class="luck-value main" id="luck-xiu">--</span>
+                        </div>
+                        
+                        <!-- 细分隔 -->
+                        <div class="luck-sub-divider"></div>
+
+                        <!-- 农历宿 -->
+                        <div class="luck-item-group">
+                            <span class="luck-label">农历宿</span>
+                            <span class="luck-value main" id="luck-lunar-xiu">--</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 垂直分割线 -->
+                    <div class="luck-divider"></div>
+                    
+                    <!-- 右侧：神煞动态容器 -->
+                    <div class="luck-section-right" id="luck-omens">
+                        <!-- 动态生成的标签将放在这里 -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="detail-row">
+                <div class="detail-item">
+                    <span class="d-label">月相</span>
+                    <span id="moon-phase" class="d-val">--</span>
+                    <span id="moon-illum" class="d-sub">--%</span>
+                </div>
+                <div class="detail-item">
+                    <span class="d-label">角距</span>
+                    <span id="moon-angle" class="d-val">--°</span>
+                </div>
+                <div class="detail-item">
+                    <span class="d-label">模式</span>
+                    <span id="mode-display" class="d-val">--</span>
+                </div>
+            </div>
+        </main>
+
+        <!-- 设置弹窗 -->
+        <div id="settings-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3>高级设定</h3>
+                <div class="form-group"><label>指定时间</label><input type="datetime-local" id="set-time" class="input-dark"></div>
+                
+                <!-- 新增：城市选择器 -->
+                <div class="form-group">
+                    <label>地点预设 (中国)</label>
+                    <div class="geo-select-group">
+                        <select id="sel-prov" class="input-dark"><option value="">- 省 -</option></select>
+                        <select id="sel-city" class="input-dark"><option value="">- 市 -</option></select>
+                        <select id="sel-dist" class="input-dark"><option value="">- 区 -</option></select>
+                    </div>
+                </div>
+
+                <div class="form-group"><label>经度</label><input type="number" id="set-lon" class="input-dark" step="0.0001"></div>
+                <div class="form-group"><label>纬度</label><input type="number" id="set-lat" class="input-dark" step="0.0001"></div>
+                <div class="form-actions">
+                    <button id="btn-cancel" class="btn-outline">关闭</button>
+                    <button id="btn-confirm" class="btn-primary">应用</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 关键：指定 index.tsx 为入口，兼容 React 环境 -->
+    <script type="module" src="./index.tsx"></script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>

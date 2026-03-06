@@ -1,0 +1,7 @@
+{
+  "name": "Lingshu System11",
+  "description": "Lingshu (Spirit Pivot) System - Vanilla JS",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
